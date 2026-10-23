@@ -1,11 +1,11 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
   BriefcaseBusiness,
   Eye,
+  ExternalLink,
   FileCode2,
   ImagePlus,
   LayoutGrid,
@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { PALETTES, SECTION_LABELS } from "./presets";
 import { SitePreview, type EditableField } from "./SitePreview";
+import { buildStandaloneHtml } from "./exportHtml";
+import { safeImageSrc } from "./media";
 import { createZip } from "./zip";
 import type {
   SiteArchetype,
@@ -35,7 +37,6 @@ import type {
   SiteReview,
   SiteSectionId,
 } from "./types";
-import studioCss from "../../styles/studio.css?raw";
 import "../../styles/studio.css";
 
 export type { BusinessInput, SiteProject, SiteArchetype } from "./types";
@@ -44,22 +45,22 @@ interface StudioPageProps {
   project: SiteProject;
   onChange: (project: SiteProject) => void;
   onBack: () => void;
+  publicationStatus?: "draft" | "published" | "suspended";
+  saveStatus?: "saved" | "pending" | "saving" | "error";
+  onSave?: () => void;
+  onPublish?: (() => void) | undefined;
+  publishDisabled?: boolean;
+  publicSiteHref?: string | undefined;
+  photoReference?: string | undefined;
 }
 
-type Tab = "content" | "sections" | "style" | "media" | "marketing";
+type Tab = "sections" | "items" | "brand" | "marketing";
 type Viewport = "desktop" | "tablet" | "mobile";
 
 const uid = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ||
-      character,
-  );
 
 function downloadBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -94,29 +95,6 @@ async function optimizeImage(file: File, maxWidth: number): Promise<string> {
   } finally {
     bitmap.close();
   }
-}
-
-function buildStandaloneHtml(project: SiteProject) {
-  // React escapes user text and attributes; omission only removes editor placeholders.
-  const markup = renderToStaticMarkup(<SitePreview project={project} />);
-  const holder = document.createElement("div");
-  holder.innerHTML = markup;
-  holder.querySelectorAll('[data-export-omit="true"]').forEach((node) => node.remove());
-  holder.querySelectorAll("[data-edit-field],[data-empty]").forEach((node) => {
-    node.removeAttribute("data-edit-field");
-    node.removeAttribute("data-empty");
-  });
-  const description =
-    project.marketing?.seoDescription.trim() ||
-    [project.business.category, project.business.city].filter(Boolean).join(" em ") ||
-    project.content.heroSubtitle;
-  const safeTitle = escapeHtml(
-    project.marketing?.seoTitle.trim() ||
-      `${project.business.name} — ${project.business.category || "Site oficial"}`,
-  );
-  const safeDescription = escapeHtml(description);
-  const css = studioCss.replace(/<\/style/gi, "<\\/style");
-  return `<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${safeDescription}"><title>${safeTitle}</title><style>html{scroll-behavior:smooth}body{margin:0}${css}</style></head><body>${holder.innerHTML}</body></html>`;
 }
 
 function Field({
@@ -183,8 +161,19 @@ function archetypeIcon(archetype: SiteArchetype) {
   return <BriefcaseBusiness size={17} />;
 }
 
-export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
-  const [tab, setTab] = useState<Tab>("content");
+export function StudioPage({
+  project,
+  onChange,
+  onBack,
+  publicationStatus = "draft",
+  saveStatus = "saved",
+  onSave,
+  onPublish,
+  publishDisabled = false,
+  publicSiteHref,
+  photoReference,
+}: StudioPageProps) {
+  const [tab, setTab] = useState<Tab>("sections");
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [toast, setToast] = useState("");
@@ -321,6 +310,21 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
       announce(error instanceof Error ? error.message : "Não foi possível usar esta imagem.");
     }
   };
+  const uploadItemImage = async (event: ChangeEvent<HTMLInputElement>, id: string) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 10 * 1024 * 1024) {
+      announce("Escolha uma imagem JPG, PNG, WebP ou GIF de até 10 MB.");
+      return;
+    }
+    try {
+      updateItem(id, { image: await optimizeImage(file, 900) });
+      announce("Foto do item adicionada.");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "Não foi possível usar esta imagem.");
+    }
+  };
   const saveHtml = () => {
     const html = buildStandaloneHtml(project);
     downloadBlob(
@@ -370,10 +374,74 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
           <div className="sx-studio-divider" />
           <div className="sx-studio-title">
             <strong>{project.business.name}</strong>
-            <small>Editor visual · projeto em edição</small>
+            <small>Editor visual</small>
           </div>
+          <span className="sx-studio-status" data-status={publicationStatus}>
+            {publicationStatus === "published"
+              ? "Ativo no ar"
+              : publicationStatus === "suspended"
+                ? "Suspenso"
+                : "Rascunho"}
+          </span>
         </div>
         <div className="sx-studio-toolbar-actions">
+          <div className="sx-studio-segment" aria-label="Largura da prévia">
+            {(
+              [
+                ["desktop", Monitor, "Computador"],
+                ["tablet", Tablet, "Tablet"],
+                ["mobile", Smartphone, "Celular"],
+              ] as const
+            ).map(([id, Icon, label]) => (
+              <button
+                type="button"
+                key={id}
+                title={label}
+                aria-label={label}
+                aria-pressed={viewport === id}
+                data-active={viewport === id}
+                onClick={() => setViewport(id)}
+              >
+                <Icon size={15} />
+              </button>
+            ))}
+          </div>
+          <label className="sx-studio-toolbar-select">
+            <span className="sr-only">Paleta de cores</span>
+            <select
+              aria-label="Paleta de cores"
+              value={project.appearance.paletteId}
+              onChange={(event) => {
+                const palette = PALETTES[project.archetype].find(
+                  (item) => item.id === event.currentTarget.value,
+                );
+                if (palette) editAppearance({ paletteId: palette.id, palette: palette.value });
+              }}
+            >
+              {PALETTES[project.archetype].map((palette) => (
+                <option key={palette.id} value={palette.id}>
+                  {palette.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sx-studio-toolbar-select">
+            <span className="sr-only">Tipografia</span>
+            <select
+              aria-label="Tipografia"
+              value={project.appearance.headingFont}
+              onChange={(event) =>
+                editAppearance({
+                  headingFont: event.currentTarget
+                    .value as SiteProject["appearance"]["headingFont"],
+                })
+              }
+            >
+              <option value="editorial">Editorial</option>
+              <option value="classic">Clássica</option>
+              <option value="modern">Moderna</option>
+            </select>
+          </label>
           <button
             type="button"
             className="sx-studio-icon"
@@ -398,10 +466,44 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
           <button
             type="button"
             className="sx-studio-button sx-studio-button--light"
+            onClick={onSave}
+            disabled={!onSave || saveStatus === "saving"}
+          >
+            {saveStatus === "error"
+              ? "Tentar salvar"
+              : saveStatus === "saved"
+                ? "Salvo"
+                : saveStatus === "saving"
+                  ? "Salvando…"
+                  : "Salvar"}
+          </button>
+          <button
+            type="button"
+            className="sx-studio-button sx-studio-button--light"
             onClick={previewHtml}
           >
             <Eye size={15} /> Prévia
           </button>
+          {publicSiteHref && (
+            <a
+              className="sx-studio-button sx-studio-button--light"
+              href={publicSiteHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink size={15} /> Abrir
+            </a>
+          )}
+          {onPublish && (
+            <button
+              type="button"
+              className="sx-studio-button sx-studio-button--light"
+              onClick={onPublish}
+              disabled={publishDisabled}
+            >
+              {publicationStatus === "published" ? "Suspender" : "Publicar"}
+            </button>
+          )}
           <button
             type="button"
             className="sx-studio-icon"
@@ -422,18 +524,13 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
       </header>
       <div className="sx-studio-body">
         <aside className="sx-studio-panel" aria-label="Ferramentas do editor">
-          <div className="sx-studio-panel-head">
-            <p>Seu espaço de criação</p>
-            <h2>Personalize seu site</h2>
-          </div>
           <div className="sx-studio-tabs" role="tablist" aria-label="Ferramentas">
             {(
               [
-                ["content", Type, "Conteúdo"],
                 ["sections", LayoutGrid, "Seções"],
-                ["style", Palette, "Estilo"],
-                ["media", ImagePlus, "Mídia"],
-                ["marketing", SearchCheck, "SEO"],
+                ["items", Type, "Itens"],
+                ["brand", Palette, "Marca"],
+                ["marketing", SearchCheck, "Marketing"],
               ] as const
             ).map(([id, Icon, label]) => (
               <button
@@ -450,7 +547,7 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
             ))}
           </div>
           <div className="sx-studio-panel-scroll">
-            {tab === "content" && (
+            {tab === "items" && (
               <>
                 <Group title="Sua empresa">
                   <Field
@@ -554,6 +651,49 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
                         onCommit={(value) => updateItem(item.id, { price: value })}
                         placeholder="Ex.: A partir de R$ 40"
                       />
+                      <Field
+                        label="Categoria para o filtro"
+                        value={item.category || ""}
+                        onCommit={(value) => updateItem(item.id, { category: value })}
+                        placeholder="Ex.: Pratos"
+                      />
+                      <Field
+                        label="Selo opcional"
+                        value={item.badge || ""}
+                        onCommit={(value) => updateItem(item.id, { badge: value })}
+                        placeholder="Ex.: Mais pedido, se confirmado"
+                      />
+                      {safeImageSrc(item.image) && (
+                        <img
+                          className="sx-studio-thumb"
+                          src={safeImageSrc(item.image)!}
+                          alt={`Foto de ${item.title}`}
+                        />
+                      )}
+                      <label className="sx-studio-upload sx-studio-upload--item">
+                        <ImagePlus size={18} /> Adicionar foto do item
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(event) => void uploadItemImage(event, item.id)}
+                        />
+                      </label>
+                      <Field
+                        label="Ou URL da foto"
+                        value={item.image?.startsWith("data:") ? "" : item.image || ""}
+                        onCommit={(value) => updateItem(item.id, { image: value })}
+                        type="url"
+                        placeholder="https://..."
+                      />
+                      {item.image && (
+                        <button
+                          type="button"
+                          className="sx-studio-button sx-studio-button--danger"
+                          onClick={() => updateItem(item.id, { image: "" })}
+                        >
+                          Remover foto
+                        </button>
+                      )}
                     </div>
                   ))}
                   <button
@@ -781,7 +921,7 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
                 </div>
               </>
             )}
-            {tab === "style" && (
+            {tab === "brand" && (
               <>
                 <Group title="Estrutura do site">
                   <div className="sx-studio-cards">
@@ -855,9 +995,18 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
                 </Group>
               </>
             )}
-            {tab === "media" && (
+            {tab === "brand" && (
               <>
                 <Group title="Foto principal">
+                  {photoReference && !project.appearance.heroImage && (
+                    <div className="sx-studio-photo-reference">
+                      <img src={photoReference} alt="Foto escolhida como referência no Google" />
+                      <p>
+                        Esta foto do Google é uma referência. Envie uma imagem autorizada abaixo
+                        para usar como capa no site publicado e no arquivo exportado.
+                      </p>
+                    </div>
+                  )}
                   <label className="sx-studio-upload">
                     <ImagePlus size={22} />
                     <strong>Escolher imagem</strong>
@@ -998,27 +1147,6 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
               <strong>Prévia ao vivo</strong>
               <small>Clique no texto para editar diretamente</small>
             </div>
-            <div className="sx-studio-segment" aria-label="Largura da prévia">
-              {(
-                [
-                  ["desktop", Monitor, "Computador"],
-                  ["tablet", Tablet, "Tablet"],
-                  ["mobile", Smartphone, "Celular"],
-                ] as const
-              ).map(([id, Icon, label]) => (
-                <button
-                  type="button"
-                  key={id}
-                  title={label}
-                  aria-label={label}
-                  aria-pressed={viewport === id}
-                  data-active={viewport === id}
-                  onClick={() => setViewport(id)}
-                >
-                  <Icon size={15} />
-                </button>
-              ))}
-            </div>
           </div>
           <div className="sx-canvas-viewport" data-viewport={viewport}>
             <SitePreview
@@ -1027,7 +1155,7 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
               selectedField={selectedField}
               onSelectField={setSelectedField}
               onEditField={editField}
-              onSelectImage={() => setTab("media")}
+              onSelectImage={() => setTab("brand")}
             />
           </div>
           <div className="sx-studio-canvas-bottom">

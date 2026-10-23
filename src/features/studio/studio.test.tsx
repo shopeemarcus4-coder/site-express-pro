@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createSiteProject, PALETTES } from "./presets";
 import { SitePreview } from "./SitePreview";
 import { siteProjectSchema } from "../../lib/server/site-project";
+import { buildStandaloneHtml } from "./exportHtml";
+import { JSDOM } from "jsdom";
+import { safeImageSrc } from "./media";
 
 describe("studio site generation", () => {
   it("starts with truthful empty evidence sections for every archetype", () => {
@@ -34,5 +37,25 @@ describe("studio site generation", () => {
     };
     const published = siteProjectSchema.parse(project);
     expect(published.marketing).toEqual(project.marketing);
+  });
+
+  it("exports working category filters in standalone HTML", () => {
+    const project = createSiteProject({ name: "Ateliê", archetype: "gastronomia" });
+    project.items = [
+      { id: "a", title: "Prato da casa", description: "", category: "Pratos" },
+      { id: "b", title: "Bolo", description: "", category: "Doces" },
+    ];
+    const dom = new JSDOM(buildStandaloneHtml(project), { runScripts: "dangerously" });
+    const document = dom.window.document;
+    const doces = document.querySelector<HTMLButtonElement>('[data-sx-filter="Doces"]');
+    doces?.click();
+    expect(document.querySelector<HTMLElement>('[data-sx-category="Pratos"]')?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-sx-category="Doces"]')?.hidden).toBe(false);
+    dom.window.close();
+  });
+
+  it("rejects unsafe image schemes", () => {
+    expect(safeImageSrc("javascript:alert(1)")).toBeNull();
+    expect(safeImageSrc("data:image/svg+xml;base64,PHN2Zz4=")).toBeNull();
   });
 });

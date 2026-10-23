@@ -10,6 +10,8 @@ const item = z.object({
   description: text,
   image: media.optional(),
   price: shortText.optional(),
+  category: shortText.optional(),
+  badge: shortText.optional(),
 });
 const review = z.object({
   id: shortText.min(1),

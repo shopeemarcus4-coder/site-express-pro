@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPlaceDetails, placesEnabled, placesMessage, searchPlaces } from "./places";
+import {
+  getPlaceDetails,
+  getPlacePhoto,
+  placesEnabled,
+  placesMessage,
+  searchPlaces,
+} from "./places";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -90,6 +96,53 @@ describe("Google Places integration", () => {
     expect((init.headers as Record<string, string>)["X-Goog-FieldMask"]).toContain(
       "internationalPhoneNumber,websiteUri",
     );
+  });
+
+  it("loads multiple photo references only with a separate photo opt-in", async () => {
+    vi.stubEnv("SITE_EXPRESS_ENABLE_PLACES", "1");
+    vi.stubEnv("GOOGLE_PLACES_API_KEY", "test-key");
+    vi.stubEnv("SITE_EXPRESS_ENABLE_PLACES_PHOTOS", "1");
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        id: "ChIJtest123",
+        displayName: { text: "Café Luz" },
+        photos: [
+          {
+            name: "places/ChIJtest123/photos/PhotoA",
+            authorAttributions: [{ displayName: "Ana", uri: "https://example.com/ana" }],
+          },
+          { name: "places/ChIJtest123/photos/PhotoB" },
+          { name: "https://attacker.example/photo" },
+        ],
+      }),
+    );
+    const result = await getPlaceDetails("ChIJtest123", "test-key", fetcher);
+    expect(result.photos).toEqual([
+      {
+        name: "places/ChIJtest123/photos/PhotoA",
+        attributions: [{ displayName: "Ana", uri: "https://example.com/ana" }],
+      },
+      { name: "places/ChIJtest123/photos/PhotoB", attributions: [] },
+    ]);
+    expect(fetcher.mock.calls[0]![1].headers["X-Goog-FieldMask"]).toContain("photos");
+  });
+
+  it("fetches a bounded image without exposing the API key in the URL", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: { "content-type": "image/jpeg" },
+      }),
+    );
+    const photo = await getPlacePhoto("places/ChIJtest123/photos/PhotoA", "test-key", fetcher);
+    expect(photo.contentType).toBe("image/jpeg");
+    expect(fetcher.mock.calls[0]![0]).toBe(
+      "https://places.googleapis.com/v1/places/ChIJtest123/photos/PhotoA/media?maxWidthPx=360",
+    );
+    expect(fetcher.mock.calls[0]![1].headers["X-Goog-Api-Key"]).toBe("test-key");
+    await expect(
+      getPlacePhoto("https://attacker.example/photo", "test-key", fetcher),
+    ).rejects.toThrow();
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it("maps quota and malformed input to actionable errors", async () => {

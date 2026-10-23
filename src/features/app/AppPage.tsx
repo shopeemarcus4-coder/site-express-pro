@@ -5,9 +5,7 @@ import {
   Check,
   Copy,
   CircleAlert,
-  ExternalLink,
   FileText,
-  Globe2,
   LayoutTemplate,
   LoaderCircle,
   LogOut,
@@ -37,7 +35,12 @@ import {
   type AppWorkspace,
   type SiteRecord,
 } from "./workspace";
-import { placeDetailsDraft, type PlaceSearchResult } from "./places";
+import {
+  placeDetailsDraft,
+  placePhotoUrl,
+  type PlacePhoto,
+  type PlaceSearchResult,
+} from "./places";
 import "../../styles/app.css";
 import { Logo } from "../../components/site/Logo";
 
@@ -95,6 +98,12 @@ export function AppPage() {
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [placesBusy, setPlacesBusy] = useState(false);
   const [placesMessage, setPlacesMessage] = useState("");
+  const [placePhotos, setPlacePhotos] = useState<PlacePhoto[]>([]);
+  const [selectedPhotoName, setSelectedPhotoName] = useState<string | null>(null);
+  const [photoReference, setPhotoReference] = useState<{
+    siteId: string;
+    photo: PlacePhoto;
+  } | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -125,6 +134,10 @@ export function AppPage() {
   function editNewSite(changes: Partial<typeof newSite>) {
     // A late details response must not replace a field the user has already edited.
     placeSelectionRef.current += 1;
+    if (changes.name !== undefined) {
+      setPlacePhotos([]);
+      setSelectedPhotoName(null);
+    }
     setNewSite((current) => ({ ...current, ...changes }));
   }
 
@@ -424,6 +437,10 @@ export function AppPage() {
     setShowCreate(false);
     setMessage("");
     placeSelectionRef.current += 1;
+    const chosenPhoto = placePhotos.find((photo) => photo.name === selectedPhotoName);
+    setPhotoReference(chosenPhoto ? { siteId: project.id, photo: chosenPhoto } : null);
+    setPlacePhotos([]);
+    setSelectedPhotoName(null);
     setNewSite({
       name: "",
       category: "",
@@ -528,6 +545,8 @@ export function AppPage() {
 
   async function selectPlace(place: PlaceSearchResult) {
     const requestId = ++placeSelectionRef.current;
+    setPlacePhotos([]);
+    setSelectedPhotoName(null);
     setNewSite((current) => ({
       ...current,
       name: place.name,
@@ -553,7 +572,16 @@ export function AppPage() {
       if (!details)
         throw new Error("Os detalhes recebidos não correspondem à empresa selecionada.");
       if (placeSelectionRef.current !== requestId) return;
-      setNewSite((current) => ({ ...current, ...details }));
+      setNewSite((current) => ({
+        ...current,
+        name: details.name,
+        address: details.address,
+        phone: details.phone,
+        website: details.website,
+        mapsUrl: details.mapsUrl,
+      }));
+      setPlacePhotos(details.photos);
+      setSelectedPhotoName(details.photos[0]?.name ?? null);
     } catch {
       if (placeSelectionRef.current === requestId)
         setPlacesMessage(
@@ -764,54 +792,40 @@ export function AppPage() {
           </button>
         </div>
       </aside>
-      <div className="sx-app-main">
-        <header className="sx-app-header">
-          <div>
-            <span className="sx-app-kicker">
-              SITE EXPRESS /{" "}
-              {view === "studio" ? "EDITOR" : view === "contracts" ? "CONTRATOS" : "PROJETOS"}
-            </span>
-            <h1>
-              {view === "studio"
-                ? (activeSite?.title ?? "Editor")
-                : view === "contracts"
-                  ? "Clientes e contratos"
-                  : "Novo Site"}
-            </h1>
-          </div>
-          <div className="sx-app-header__actions">
-            <span className={`sx-app-save sx-app-save--${saveStatus}`} aria-live="polite">
-              {saveStatus === "saved" ? (
-                <Check size={15} />
-              ) : saveStatus === "error" ? (
-                <CircleAlert size={15} />
-              ) : (
-                <LoaderCircle size={15} className="sx-spin" />
+      <div className={view === "studio" ? "sx-app-main sx-app-main--studio" : "sx-app-main"}>
+        {view !== "studio" && (
+          <header className="sx-app-header">
+            <div>
+              <span className="sx-app-kicker">
+                SITE EXPRESS / {view === "contracts" ? "CONTRATOS" : "PROJETOS"}
+              </span>
+              <h1>{view === "contracts" ? "Clientes e contratos" : "Novo Site"}</h1>
+            </div>
+            <div className="sx-app-header__actions">
+              <span className={`sx-app-save sx-app-save--${saveStatus}`} aria-live="polite">
+                {saveStatus === "saved" ? (
+                  <Check size={15} />
+                ) : saveStatus === "error" ? (
+                  <CircleAlert size={15} />
+                ) : (
+                  <LoaderCircle size={15} className="sx-spin" />
+                )}
+                {saveStatus === "saved"
+                  ? "Salvo"
+                  : saveStatus === "pending"
+                    ? "Alterações pendentes"
+                    : saveStatus === "saving"
+                      ? "Salvando"
+                      : "Falha ao salvar"}
+              </span>
+              {mode === "account" && saveStatus === "error" && (
+                <button type="button" className="sx-app-secondary" onClick={() => void flushSave()}>
+                  Tentar salvar
+                </button>
               )}
-              {saveStatus === "saved"
-                ? "Salvo"
-                : saveStatus === "pending"
-                  ? "Alterações pendentes"
-                  : saveStatus === "saving"
-                    ? "Salvando"
-                    : "Falha ao salvar"}
-            </span>
-            {mode === "account" && saveStatus === "error" && (
-              <button type="button" className="sx-app-secondary" onClick={() => void flushSave()}>
-                Tentar salvar
-              </button>
-            )}
-            {view === "studio" && (
-              <button
-                type="button"
-                className="sx-app-secondary"
-                onClick={() => setView("dashboard")}
-              >
-                <ArrowLeft size={16} /> Projetos
-              </button>
-            )}
-          </div>
-        </header>
+            </div>
+          </header>
+        )}
         {message && (
           <div className="sx-app-banner" role="status">
             <CircleAlert size={18} />
@@ -821,7 +835,7 @@ export function AppPage() {
             </button>
           </div>
         )}
-        {mode === "local" && (
+        {mode === "local" && view !== "studio" && (
           <div className="sx-app-local-note">
             <MoonStar size={17} /> Modo local: seus sites e contratos ficam somente neste navegador.
             Exporte o HTML no editor para guardar uma cópia.
@@ -834,62 +848,35 @@ export function AppPage() {
             onBack={() => setView("dashboard")}
           />
         ) : view === "studio" && activeSite?.publicData ? (
-          <>
-            <div className="sx-app-publishbar">
-              <div>
-                <span>
-                  {activeSite.status === "published" && saveStatus === "saved"
-                    ? "Publicado"
-                    : activeSite.status === "suspended"
-                      ? "Publicação suspensa"
-                      : "Rascunho"}
-                </span>
-                <p>
-                  {mode === "local"
-                    ? "Exporte o HTML para publicar em sua hospedagem."
-                    : "Revise o conteúdo antes de publicar."}
-                </p>
-              </div>
-              <div>
-                {activeSite.status === "published" && saveStatus === "saved" && (
-                  <a
-                    href={`/site/${activeSite.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="sx-app-secondary"
-                  >
-                    Abrir site <ExternalLink size={16} />
-                  </a>
-                )}
-                {mode === "account" && (
-                  <button
-                    type="button"
-                    className="sx-app-primary"
-                    disabled={actionBusy || saveStatus === "error"}
-                    onClick={() =>
-                      void setPublication(
-                        activeSite,
-                        activeSite.status === "published" ? "suspended" : "published",
-                      )
-                    }
-                  >
-                    {actionBusy
-                      ? "Aguarde…"
-                      : activeSite.status === "published"
-                        ? "Suspender"
-                        : "Publicar site"}
-                    <Globe2 size={17} />
-                  </button>
-                )}
-              </div>
-            </div>
-            <StudioPage
-              key={activeSite.id}
-              project={activeSite.publicData}
-              onChange={editProject}
-              onBack={() => setView("dashboard")}
-            />
-          </>
+          <StudioPage
+            key={activeSite.id}
+            project={activeSite.publicData}
+            onChange={editProject}
+            onBack={() => setView("dashboard")}
+            photoReference={
+              photoReference?.siteId === activeSite.id
+                ? placePhotoUrl(photoReference.photo.name)
+                : undefined
+            }
+            publicationStatus={activeSite.status}
+            saveStatus={saveStatus}
+            onSave={() => void flushSave()}
+            onPublish={
+              mode === "account"
+                ? () =>
+                    void setPublication(
+                      activeSite,
+                      activeSite.status === "published" ? "suspended" : "published",
+                    )
+                : undefined
+            }
+            publishDisabled={actionBusy || saveStatus === "error"}
+            publicSiteHref={
+              activeSite.status === "published" && saveStatus === "saved"
+                ? `/site/${activeSite.slug}`
+                : undefined
+            }
+          />
         ) : (
           <>
             <section className="sx-app-search-home">
@@ -1060,6 +1047,62 @@ export function AppPage() {
                           </div>
                         )}
                       </form>
+                    )}
+                    {placePhotos.length > 0 && (
+                      <section
+                        className="sx-app-place-photos"
+                        aria-label="Fotos da empresa no Google"
+                      >
+                        <div className="sx-app-place-photos__heading">
+                          <strong>Fotos encontradas no Google</strong>
+                          <span>Selecione uma referência para a capa</span>
+                        </div>
+                        <div className="sx-app-place-photos__grid">
+                          {placePhotos.map((photo, index) => (
+                            <div key={photo.name} className="sx-app-place-photos__item">
+                              <button
+                                type="button"
+                                className="sx-app-place-photos__photo"
+                                aria-label={`Selecionar foto ${index + 1} como referência`}
+                                aria-pressed={selectedPhotoName === photo.name}
+                                onClick={() => setSelectedPhotoName(photo.name)}
+                              >
+                                <img
+                                  src={placePhotoUrl(photo.name)}
+                                  alt={`Foto ${index + 1} da empresa`}
+                                  loading="lazy"
+                                />
+                                {selectedPhotoName === photo.name && (
+                                  <Check size={18} aria-hidden="true" />
+                                )}
+                              </button>
+                              {photo.attributions.map((author) =>
+                                author.uri ? (
+                                  <a
+                                    key={author.displayName}
+                                    href={author.uri}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    {author.displayName}
+                                  </a>
+                                ) : (
+                                  <span key={author.displayName}>{author.displayName}</span>
+                                ),
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {newSite.mapsUrl && (
+                          <a href={newSite.mapsUrl} target="_blank" rel="noreferrer">
+                            Ver empresa no Google Maps
+                          </a>
+                        )}
+                        <small>
+                          As fotos do Google servem como referência. Para publicar ou exportar a
+                          capa, envie uma imagem que você pode usar na aba Marca do editor.
+                        </small>
+                      </section>
                     )}
                     <form className="sx-app-create__form" onSubmit={createSite}>
                       <label>

@@ -22,6 +22,7 @@ import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiPlacesDetailsRouteImport } from './routes/api/places/details'
+import { Route as ApiPlacesPhotoRouteImport } from './routes/api/places/photo'
 import { Route as ApiPlacesSearchRouteImport } from './routes/api/places/search'
 import { Route as ApiPublicSlugRouteImport } from './routes/api/public/$slug'
 
@@ -90,6 +91,11 @@ const ApiPlacesDetailsRoute = ApiPlacesDetailsRouteImport.update({
   path: '/api/places/details',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPlacesPhotoRoute = ApiPlacesPhotoRouteImport.update({
+  id: '/api/places/photo',
+  path: '/api/places/photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPlacesSearchRoute = ApiPlacesSearchRouteImport.update({
   id: '/api/places/search',
   path: '/api/places/search',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/photo': typeof ApiPlacesPhotoRoute
   '/api/places/search': typeof ApiPlacesSearchRoute
   '/api/public/$slug': typeof ApiPublicSlugRoute
 }
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/photo': typeof ApiPlacesPhotoRoute
   '/api/places/search': typeof ApiPlacesSearchRoute
   '/api/public/$slug': typeof ApiPublicSlugRoute
 }
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/photo': typeof ApiPlacesPhotoRoute
   '/api/places/search': typeof ApiPlacesSearchRoute
   '/api/public/$slug': typeof ApiPublicSlugRoute
 }
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/session'
     | '/api/places/details'
+    | '/api/places/photo'
     | '/api/places/search'
     | '/api/public/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/session'
     | '/api/places/details'
+    | '/api/places/photo'
     | '/api/places/search'
     | '/api/public/$slug'
   id:
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/api/auth/register'
     | '/api/auth/session'
     | '/api/places/details'
+    | '/api/places/photo'
     | '/api/places/search'
     | '/api/public/$slug'
   fileRoutesById: FileRoutesById
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiPlacesDetailsRoute: typeof ApiPlacesDetailsRoute
+  ApiPlacesPhotoRoute: typeof ApiPlacesPhotoRoute
   ApiPlacesSearchRoute: typeof ApiPlacesSearchRoute
   ApiPublicSlugRoute: typeof ApiPublicSlugRoute
 }
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPlacesDetailsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/places/photo': {
+      id: '/api/places/photo'
+      path: '/api/places/photo'
+      fullPath: '/api/places/photo'
+      preLoaderRoute: typeof ApiPlacesPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/places/search': {
       id: '/api/places/search'
       path: '/api/places/search'
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiPlacesDetailsRoute: ApiPlacesDetailsRoute,
+  ApiPlacesPhotoRoute: ApiPlacesPhotoRoute,
   ApiPlacesSearchRoute: ApiPlacesSearchRoute,
   ApiPublicSlugRoute: ApiPublicSlugRoute,
 }

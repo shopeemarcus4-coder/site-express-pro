@@ -5,12 +5,18 @@ export type PlaceSearchResult = {
   category?: string | null;
 };
 
+export type PlacePhoto = {
+  name: string;
+  attributions: { displayName: string; uri: string | null }[];
+};
+
 export type ImportedPlaceDetails = {
   name: string;
   address: string;
   phone: string;
   website: string;
   mapsUrl: string;
+  photos: PlacePhoto[];
 };
 
 function nonEmptyText(value: unknown): string | null {
@@ -42,11 +48,37 @@ export function placeDetailsDraft(
   const phone = nonEmptyText(details["phone"]);
   const website = safeWebsite(details["website"]);
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${encodeURIComponent(selected.placeId)}`;
+  const photos = Array.isArray(details["photos"])
+    ? details["photos"].slice(0, 8).flatMap((value): PlacePhoto[] => {
+        if (!value || typeof value !== "object") return [];
+        const photo = value as Record<string, unknown>;
+        if (
+          typeof photo["name"] !== "string" ||
+          !/^places\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/.test(photo["name"])
+        )
+          return [];
+        const attributions = Array.isArray(photo["attributions"])
+          ? photo["attributions"].flatMap((value): PlacePhoto["attributions"] => {
+              if (!value || typeof value !== "object") return [];
+              const author = value as Record<string, unknown>;
+              if (typeof author["displayName"] !== "string") return [];
+              const uri = safeWebsite(author["uri"]);
+              return [{ displayName: author["displayName"], uri }];
+            })
+          : [];
+        return [{ name: photo["name"], attributions }];
+      })
+    : [];
   return {
     name,
     address: address ?? selected.address,
     phone: phone ?? "",
     website: website ?? "",
     mapsUrl,
+    photos,
   };
+}
+
+export function placePhotoUrl(name: string): string {
+  return `/api/places/photo?name=${encodeURIComponent(name)}`;
 }

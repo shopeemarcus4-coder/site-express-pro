@@ -583,6 +583,87 @@
   font-size: 12px;
   color: #777;
 }
+.sx-app-place-photos {
+  margin: 0 0 23px;
+  padding: 16px;
+  border: 1px solid #e2ded2;
+  border-radius: 10px;
+  background: #faf9f6;
+}
+.sx-app-place-photos__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #1b1b17;
+  font-size: 13px;
+}
+.sx-app-place-photos__heading span {
+  color: #67665f;
+}
+.sx-app-place-photos__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.sx-app-place-photos__photo {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  background: #e8e6df;
+  cursor: pointer;
+  width: 100%;
+}
+.sx-app-place-photos__item > a,
+.sx-app-place-photos__item > span {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #5e5d56;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sx-app-place-photos__item > a {
+  text-decoration: underline;
+}
+.sx-app-place-photos__photo[aria-pressed="true"] {
+  border-color: #405d4b;
+}
+.sx-app-place-photos__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sx-app-place-photos__photo svg {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 3px;
+  border-radius: 50%;
+  background: #405d4b;
+  color: white;
+}
+.sx-app-place-photos > small,
+.sx-app-place-photos > a,
+.sx-app-place-photos > span {
+  display: block;
+  margin-top: 10px;
+  color: #5e5d56;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.sx-app-place-photos > a {
+  text-decoration: underline;
+}
+.sx-app-place-photos__photo:focus-visible {
+  outline: 3px solid #405d4b;
+  outline-offset: 2px;
+}
 .sx-app-publishbar {
   display: flex;
   justify-content: space-between;
@@ -842,6 +923,12 @@
   }
 }
 @media (max-width: 500px) {
+  .sx-app-place-photos__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sx-app-place-photos__heading {
+    display: grid;
+  }
   .sx-app-create__form {
     grid-template-columns: 1fr;
   }
@@ -956,6 +1043,10 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 20px 80px;
+}
+.sx-app-main--studio {
+  max-width: none;
+  padding: 0;
 }
 .sx-app-header {
   min-height: 60px;

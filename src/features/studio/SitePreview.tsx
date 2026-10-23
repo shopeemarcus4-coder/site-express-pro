@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Plus,
 } from "lucide-react";
 import type { SiteProject, SiteSectionId } from "./types";
+import { safeImageSrc } from "./media";
 
 export type EditableField = keyof SiteProject["content"] | "business.name" | "business.category";
 
@@ -144,6 +145,16 @@ export function SitePreview({
   onSelectImage,
 }: SitePreviewProps) {
   const { business, appearance, content, sections } = project;
+  const heroImage = safeImageSrc(appearance.heroImage);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const categories = [
+    ...new Set(
+      project.items
+        .map((item) => item.category?.trim())
+        .filter((value): value is string => !!value),
+    ),
+  ];
+  const activeCategory = categories.includes(selectedCategory) ? selectedCategory : "all";
   const palette = appearance.palette;
   const themeStyle = {
     "--sx-c-primary": palette.primary,
@@ -200,13 +211,13 @@ export function SitePreview({
       data-archetype={project.archetype}
       data-hero-layout={appearance.heroLayout}
       data-heading-font={appearance.headingFont}
+      data-hero-photo={heroImage ? "true" : "false"}
       style={themeStyle}
     >
       <header className="sx-site-header">
         <a className="sx-site-brand" href="#inicio" aria-label={`Início: ${business.name}`}>
-          {(business.logoUrl && isSafeHttpUrl(business.logoUrl)) ||
-          business.logoUrl.startsWith("data:image/") ? (
-            <img src={business.logoUrl} alt="" />
+          {safeImageSrc(business.logoUrl) ? (
+            <img src={safeImageSrc(business.logoUrl)!} alt="" />
           ) : (
             <span className="sx-site-brand-mark" aria-hidden="true">
               {business.name.slice(0, 1).toUpperCase()}
@@ -260,12 +271,10 @@ export function SitePreview({
               </p>
             )}
           </div>
-          <div
-            className={`sx-site-hero-visual ${appearance.heroImage ? "sx-site-hero-visual--photo" : ""}`}
-          >
-            {appearance.heroImage ? (
+          <div className={`sx-site-hero-visual ${heroImage ? "sx-site-hero-visual--photo" : ""}`}>
+            {heroImage ? (
               <img
-                src={appearance.heroImage}
+                src={heroImage}
                 alt={appearance.heroImageAlt || ""}
                 style={{ objectPosition: appearance.heroPosition }}
               />
@@ -307,16 +316,49 @@ export function SitePreview({
                         : "Soluções para as suas necessidades."}
                   </p>
                 </div>
+                {categories.length > 0 && (
+                  <div className="sx-site-filters" aria-label="Categorias">
+                    <button
+                      type="button"
+                      data-sx-filter="all"
+                      aria-pressed={activeCategory === "all"}
+                      onClick={() => setSelectedCategory("all")}
+                    >
+                      Todos
+                    </button>
+                    {categories.map((category) => (
+                      <button
+                        type="button"
+                        key={category}
+                        data-sx-filter={category}
+                        aria-pressed={activeCategory === category}
+                        onClick={() => setSelectedCategory(category)}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {project.items.length ? (
                   <div className="sx-site-items">
                     {project.items.map((item, index) => (
-                      <article className="sx-site-item" key={item.id}>
-                        {item.image && <img src={item.image} alt="" loading="lazy" />}
+                      <article
+                        className="sx-site-item"
+                        key={item.id}
+                        data-sx-category={item.category?.trim() || ""}
+                        hidden={
+                          activeCategory !== "all" && item.category?.trim() !== activeCategory
+                        }
+                      >
+                        {safeImageSrc(item.image) && (
+                          <img src={safeImageSrc(item.image)!} alt="" loading="lazy" />
+                        )}
                         <div>
                           <span className="sx-site-item-index">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                           <h3>{item.title}</h3>
+                          {item.badge && <span className="sx-site-item-badge">{item.badge}</span>}
                           <p>{item.description}</p>
                           {item.price && <strong>{item.price}</strong>}
                         </div>

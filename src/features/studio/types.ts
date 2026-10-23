@@ -9,6 +9,8 @@ export interface SiteItem {
   description: string;
   image?: string | undefined;
   price?: string | undefined;
+  category?: string | undefined;
+  badge?: string | undefined;
 }
 
 export interface SiteReview {
@@ -82,10 +84,12 @@ export interface SiteProject {
     videoTitle: string;
     videoUrl: string;
   };
-  marketing?: {
-    seoTitle: string;
-    seoDescription: string;
-  } | undefined;
+  marketing?:
+    | {
+        seoTitle: string;
+        seoDescription: string;
+      }
+    | undefined;
   sections: SiteSection[];
   items: SiteItem[];
   gallery: string[];

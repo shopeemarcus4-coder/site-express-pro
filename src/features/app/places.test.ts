@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSiteProject } from "../studio/presets";
-import { placeDetailsDraft, type PlaceSearchResult } from "./places";
+import { placeDetailsDraft, placePhotoUrl, type PlaceSearchResult } from "./places";
 
 const selected: PlaceSearchResult = {
   placeId: "ChIJtest123",
@@ -50,5 +50,23 @@ describe("Google Places project import", () => {
       selected,
     );
     expect(details?.website).toBe("");
+  });
+
+  it("accepts only Google photo names and keeps the key out of browser URLs", () => {
+    const details = placeDetailsDraft(
+      {
+        placeId: selected.placeId,
+        name: selected.name,
+        photos: [
+          { name: "places/ChIJtest123/photos/PhotoA", attributions: [] },
+          { name: "https://example.com/private.jpg" },
+        ],
+      },
+      selected,
+    );
+    expect(details?.photos).toHaveLength(1);
+    expect(placePhotoUrl(details!.photos[0]!.name)).toBe(
+      "/api/places/photo?name=places%2FChIJtest123%2Fphotos%2FPhotoA",
+    );
   });
 });

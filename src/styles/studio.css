@@ -19,23 +19,24 @@
   --ui-accent: #cfbb8a;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background: #eceeea;
+  height: calc(100dvh - 64px);
+  min-height: 0;
+  background: #eceef1;
   color: var(--ui-ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, Arial, Helvetica, sans-serif;
 }
 .sx-studio-toolbar {
-  height: 74px;
-  min-height: 74px;
+  height: auto;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 0 26px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 16px;
   background: #fff;
   border-bottom: 1px solid var(--ui-line);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 30;
 }
 .sx-studio-toolbar-start,
@@ -44,6 +45,37 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.sx-studio-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.sx-studio-status {
+  flex: none;
+  border-radius: 99px;
+  padding: 5px 9px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 750;
+}
+.sx-studio-status[data-status="published"] {
+  background: #dcfce7;
+  color: #166534;
+}
+.sx-studio-status[data-status="suspended"] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.sx-studio-toolbar-select select {
+  height: 36px;
+  max-width: 132px;
+  padding: 0 9px;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 12px;
 }
 .sx-studio-back,
 .sx-studio-icon,
@@ -116,7 +148,7 @@
   color: #233328;
 }
 .sx-studio-button--dark {
-  background: #203326;
+  background: #111827;
   color: #fff;
 }
 .sx-studio-button--outline {
@@ -130,8 +162,10 @@
 }
 .sx-studio-body {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
-  min-height: calc(100vh - 74px);
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 .sx-studio-panel {
   background: #fff;
@@ -139,9 +173,9 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: calc(100vh - 74px);
-  position: sticky;
-  top: 74px;
+  height: auto;
+  min-height: 0;
+  position: static;
 }
 .sx-studio-panel-head {
   padding: 22px 22px 16px;
@@ -164,23 +198,27 @@
 }
 .sx-studio-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 2px;
-  padding: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 0;
   border-bottom: 1px solid var(--ui-line);
 }
 .sx-studio-tabs button {
   flex-direction: column;
   gap: 4px;
-  border-radius: 8px;
-  padding: 9px 0;
-  font-size: 10px;
+  border-radius: 0;
+  padding: 12px 0;
+  font-size: 11px;
   color: #777f78;
   background: transparent;
 }
+.sx-studio-tabs button svg {
+  display: none;
+}
 .sx-studio-tabs button[data-active="true"] {
-  color: #263d2b;
-  background: #f0f3ed;
+  color: #111827;
+  background: #fff;
+  box-shadow: inset 0 -2px #111827;
   font-weight: 700;
 }
 .sx-studio-panel-scroll {
@@ -442,6 +480,12 @@
   cursor: pointer;
   color: #3e6445;
 }
+.sx-studio-upload--item {
+  min-height: 58px;
+  flex-direction: row;
+  font-size: 11px;
+  font-weight: 700;
+}
 .sx-studio-upload strong {
   font-size: 12px;
 }
@@ -487,11 +531,12 @@
 }
 .sx-studio-canvas-area {
   min-width: 0;
-  padding: 0 26px 42px;
-  overflow: hidden;
+  min-height: 0;
+  padding: 18px 20px 30px;
+  overflow: auto;
 }
 .sx-studio-canvas-top {
-  height: 73px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -847,6 +892,27 @@
   opacity: 0.6;
   margin: 0;
 }
+.sx-site-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+.sx-site-filters button {
+  min-height: 38px;
+  padding: 7px 17px;
+  border: 1px solid color-mix(in srgb, var(--sx-c-primary) 20%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sx-c-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sx-site-filters button[aria-pressed="true"] {
+  background: var(--sx-c-primary);
+  color: #fff;
+}
 .sx-site-items {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -859,6 +925,18 @@
   min-height: 245px;
   border: 1px solid color-mix(in srgb, var(--sx-c-ink) 13%, transparent);
   background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.sx-site-item[hidden] {
+  display: none;
+}
+.sx-site-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px #00000013;
 }
 .sx-site-item > img {
   width: 100%;
@@ -881,6 +959,15 @@
   font-weight: 400;
   letter-spacing: -0.04em;
   margin: 18px 0 8px;
+}
+.sx-site-item-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--sx-c-accent) 24%, white);
+  color: var(--sx-c-primary);
+  font-size: 10px;
+  font-weight: 750;
 }
 .sx-site-item p {
   font-size: 12px;
@@ -942,6 +1029,13 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+  border-radius: 12px;
+}
+.sx-site[data-archetype="gastronomia"] .sx-site-gallery-grid:has(img:nth-child(3)) img:first-child {
+  grid-column: span 2;
+  grid-row: span 2;
+  height: 100%;
+  aspect-ratio: auto;
 }
 .sx-site-review-grid {
   display: grid;
@@ -1120,6 +1214,54 @@
   clip-path: polygon(6% 0, 100% 0, 100% 100%, 0 100%);
   margin-left: -4%;
 }
+.sx-site[data-archetype="gastronomia"] .sx-site-header {
+  background: var(--sx-c-primary);
+  color: #fff;
+  border-bottom-color: #ffffff24;
+}
+.sx-site[data-archetype="gastronomia"] .sx-site-header-cta {
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 19px;
+  background: var(--sx-c-accent);
+  color: var(--sx-c-primary);
+}
+.sx-site[data-archetype="gastronomia"] .sx-site-button {
+  border-radius: 999px;
+}
+.sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero {
+  display: block;
+  min-height: 590px;
+  background: var(--sx-c-primary);
+  isolation: isolate;
+}
+.sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, #071b12d9, #071b128a 52%, #071b1230);
+  pointer-events: none;
+}
+.sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero-content {
+  min-height: 590px;
+  max-width: 870px;
+  padding: 80px clamp(30px, 8vw, 118px);
+  background: transparent;
+  z-index: 2;
+}
+.sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero-visual {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  clip-path: none;
+}
+.sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-image-edit {
+  z-index: 3;
+}
 .sx-site[data-archetype="produtos"] .sx-site-hero {
   background: var(--sx-c-primary);
   color: #fff;
@@ -1209,6 +1351,14 @@
     clip-path: none;
     margin: 0;
   }
+  .sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero-content {
+    min-height: 560px;
+    padding: 75px 25px 60px;
+  }
+  .sx-site[data-archetype="gastronomia"][data-hero-photo="true"] .sx-site-hero-visual {
+    height: 100%;
+    min-height: 0;
+  }
   .sx-site[data-archetype="produtos"] .sx-site-hero-content {
     order: 1;
   }
@@ -1271,7 +1421,7 @@
 }
 @media (max-width: 900px) {
   .sx-studio-body {
-    grid-template-columns: 265px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr);
   }
   .sx-studio-toolbar {
     padding: 0 12px;
@@ -1281,6 +1431,10 @@
   }
 }
 @media (max-width: 690px) {
+  .sx-studio {
+    height: auto;
+    min-height: calc(100dvh - 64px);
+  }
   .sx-studio-toolbar {
     height: auto;
     min-height: 64px;
@@ -1290,8 +1444,11 @@
   .sx-studio-toolbar-actions {
     gap: 4px;
   }
-  .sx-studio-toolbar-actions .sx-studio-button--light {
-    display: none;
+  .sx-studio-toolbar-actions {
+    justify-content: flex-start;
+  }
+  .sx-studio-toolbar-select select {
+    max-width: 112px;
   }
   .sx-studio-title strong {
     max-width: 140px;
@@ -1299,6 +1456,7 @@
   .sx-studio-body {
     display: flex;
     flex-direction: column;
+    overflow: visible;
   }
   .sx-studio-panel {
     width: 100%;
@@ -1321,8 +1479,28 @@
   }
   .sx-studio-canvas-area {
     padding: 0 12px 30px;
+    overflow: visible;
   }
   .sx-studio-canvas-bottom {
     display: none;
   }
+}
+.sx-studio-photo-reference {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 9px;
+  background: #f6f3ea;
+}
+.sx-studio-photo-reference img {
+  display: block;
+  width: 100%;
+  max-height: 170px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.sx-studio-photo-reference p {
+  margin: 10px 2px 2px;
+  color: #44443d;
+  font-size: 12px;
+  line-height: 1.5;
 }

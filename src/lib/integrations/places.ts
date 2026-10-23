@@ -3,6 +3,7 @@ import { z } from "zod";
 const SEARCH_FIELDS = "places.id,places.displayName,places.formattedAddress,places.primaryType";
 const DETAILS_FIELDS = "id,displayName,formattedAddress,location";
 const DETAILS_CONTACT_FIELDS = ",internationalPhoneNumber,websiteUri";
+const DETAILS_PHOTO_FIELDS = ",photos";
 const GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1";
 
 export const placesSearchInput = z.object({
@@ -29,6 +30,12 @@ export type PlaceBusiness = PlaceSearchResult & {
   phone: string | null;
   website: string | null;
   location: { latitude: number; longitude: number } | null;
+  photos: PlacePhoto[];
+};
+
+export type PlacePhoto = {
+  name: string;
+  attributions: { displayName: string; uri: string | null }[];
 };
 
 type Fetcher = typeof fetch;
@@ -49,6 +56,15 @@ export function placesEnabled(): boolean {
     Boolean(process.env["GOOGLE_PLACES_API_KEY"]?.trim())
   );
 }
+
+export function placePhotosEnabled(): boolean {
+  return placesEnabled() && process.env["SITE_EXPRESS_ENABLE_PLACES_PHOTOS"] === "1";
+}
+
+export const placePhotoName = z
+  .string()
+  .max(512)
+  .regex(/^places\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/);
 
 function requiredKey(key: string | undefined): string {
   if (!key?.trim()) throw new PlacesError("not_configured", 503);
@@ -141,7 +157,11 @@ export async function getPlaceDetails(
 ): Promise<PlaceBusiness> {
   const validId = placesDetailsInput.parse({ placeId }).placeId;
   const contactFieldsEnabled = process.env["SITE_EXPRESS_ENABLE_PLACES_CONTACT_FIELDS"] === "1";
-  const fieldMask = DETAILS_FIELDS + (contactFieldsEnabled ? DETAILS_CONTACT_FIELDS : "");
+  const photoFieldsEnabled = placePhotosEnabled();
+  const fieldMask =
+    DETAILS_FIELDS +
+    (contactFieldsEnabled ? DETAILS_CONTACT_FIELDS : "") +
+    (photoFieldsEnabled ? DETAILS_PHOTO_FIELDS : "");
   const data = await googleRequest(
     `/places/${encodeURIComponent(validId)}`,
     requiredKey(key),
@@ -165,7 +185,61 @@ export async function getPlaceDetails(
       Number.isFinite(longitude)
         ? { latitude, longitude }
         : null,
+    photos: photoFieldsEnabled
+      ? (Array.isArray(raw["photos"]) ? raw["photos"] : [])
+          .slice(0, 8)
+          .map(normalizePhoto)
+          .filter((photo): photo is PlacePhoto => photo !== null)
+      : [],
   };
+}
+
+function normalizePhoto(value: unknown): PlacePhoto | null {
+  const raw = record(value);
+  const name = string(raw?.["name"]);
+  if (!name || !placePhotoName.safeParse(name).success) return null;
+  const attributions = Array.isArray(raw?.["authorAttributions"])
+    ? raw["authorAttributions"]
+        .map((value): PlacePhoto["attributions"][number] | null => {
+          const author = record(value);
+          const displayName = string(author?.["displayName"]);
+          if (!displayName) return null;
+          const uri = string(author?.["uri"]);
+          return {
+            displayName,
+            uri: uri && /^https:\/\//i.test(uri) ? uri : null,
+          };
+        })
+        .filter((value): value is PlacePhoto["attributions"][number] => value !== null)
+    : [];
+  return { name, attributions };
+}
+
+export async function getPlacePhoto(
+  name: string,
+  key = placePhotosEnabled() ? process.env["GOOGLE_PLACES_API_KEY"] : undefined,
+  fetcher: Fetcher = fetch,
+): Promise<{ bytes: ArrayBuffer; contentType: string }> {
+  const validName = placePhotoName.parse(name);
+  let response: Response;
+  try {
+    response = await fetcher(`${GOOGLE_PLACES_BASE}/${validName}/media?maxWidthPx=360`, {
+      headers: { "X-Goog-Api-Key": requiredKey(key) },
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch (error) {
+    if (error instanceof PlacesError) throw error;
+    throw new PlacesError("unavailable", 502);
+  }
+  if (!response.ok) throw errorFromResponse(response.status);
+  const contentType = response.headers.get("content-type")?.split(";")[0] ?? "";
+  if (!["image/jpeg", "image/png", "image/webp"].includes(contentType))
+    throw new PlacesError("bad_response", 502);
+  if (Number(response.headers.get("content-length") ?? 0) > 4_000_000)
+    throw new PlacesError("bad_response", 502);
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > 4_000_000) throw new PlacesError("bad_response", 502);
+  return { bytes, contentType };
 }
 
 export function placesMessage(error: unknown): { message: string; status: number; code: string } {
