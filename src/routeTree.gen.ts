@@ -10,33 +10,167 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
+import { Route as SiteSlugRouteImport } from './routes/site/$slug'
+import { Route as ApiAiRewriteRouteImport } from './routes/api/ai/rewrite'
+import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
+import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
+import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
+import { Route as ApiPlacesDetailsRouteImport } from './routes/api/places/details'
+import { Route as ApiPlacesSearchRouteImport } from './routes/api/places/search'
+import { Route as ApiPublicSlugRouteImport } from './routes/api/public/$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkspaceRoute = ApiWorkspaceRouteImport.update({
+  id: '/api/workspace',
+  path: '/api/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteSlugRoute = SiteSlugRouteImport.update({
+  id: '/site/$slug',
+  path: '/site/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiRewriteRoute = ApiAiRewriteRouteImport.update({
+  id: '/api/ai/rewrite',
+  path: '/api/ai/rewrite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
+  id: '/api/auth/login',
+  path: '/api/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthRegisterRoute = ApiAuthRegisterRouteImport.update({
+  id: '/api/auth/register',
+  path: '/api/auth/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
+  id: '/api/auth/session',
+  path: '/api/auth/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlacesDetailsRoute = ApiPlacesDetailsRouteImport.update({
+  id: '/api/places/details',
+  path: '/api/places/details',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPlacesSearchRoute = ApiPlacesSearchRouteImport.update({
+  id: '/api/places/search',
+  path: '/api/places/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSlugRoute = ApiPublicSlugRouteImport.update({
+  id: '/api/public/$slug',
+  path: '/api/public/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/api/workspace': typeof ApiWorkspaceRoute
+  '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/rewrite': typeof ApiAiRewriteRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/search': typeof ApiPlacesSearchRoute
+  '/api/public/$slug': typeof ApiPublicSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/api/workspace': typeof ApiWorkspaceRoute
+  '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/rewrite': typeof ApiAiRewriteRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/search': typeof ApiPlacesSearchRoute
+  '/api/public/$slug': typeof ApiPublicSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/api/workspace': typeof ApiWorkspaceRoute
+  '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/rewrite': typeof ApiAiRewriteRoute
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/places/details': typeof ApiPlacesDetailsRoute
+  '/api/places/search': typeof ApiPlacesSearchRoute
+  '/api/public/$slug': typeof ApiPublicSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/api/workspace'
+    | '/site/$slug'
+    | '/api/ai/rewrite'
+    | '/api/auth/login'
+    | '/api/auth/register'
+    | '/api/auth/session'
+    | '/api/places/details'
+    | '/api/places/search'
+    | '/api/public/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/app'
+    | '/api/workspace'
+    | '/site/$slug'
+    | '/api/ai/rewrite'
+    | '/api/auth/login'
+    | '/api/auth/register'
+    | '/api/auth/session'
+    | '/api/places/details'
+    | '/api/places/search'
+    | '/api/public/$slug'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/api/workspace'
+    | '/site/$slug'
+    | '/api/ai/rewrite'
+    | '/api/auth/login'
+    | '/api/auth/register'
+    | '/api/auth/session'
+    | '/api/places/details'
+    | '/api/places/search'
+    | '/api/public/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
+  ApiWorkspaceRoute: typeof ApiWorkspaceRoute
+  SiteSlugRoute: typeof SiteSlugRoute
+  ApiAiRewriteRoute: typeof ApiAiRewriteRoute
+  ApiAuthLoginRoute: typeof ApiAuthLoginRoute
+  ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
+  ApiAuthSessionRoute: typeof ApiAuthSessionRoute
+  ApiPlacesDetailsRoute: typeof ApiPlacesDetailsRoute
+  ApiPlacesSearchRoute: typeof ApiPlacesSearchRoute
+  ApiPublicSlugRoute: typeof ApiPublicSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +182,91 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace': {
+      id: '/api/workspace'
+      path: '/api/workspace'
+      fullPath: '/api/workspace'
+      preLoaderRoute: typeof ApiWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/site/$slug': {
+      id: '/site/$slug'
+      path: '/site/$slug'
+      fullPath: '/site/$slug'
+      preLoaderRoute: typeof SiteSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/rewrite': {
+      id: '/api/ai/rewrite'
+      path: '/api/ai/rewrite'
+      fullPath: '/api/ai/rewrite'
+      preLoaderRoute: typeof ApiAiRewriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/login': {
+      id: '/api/auth/login'
+      path: '/api/auth/login'
+      fullPath: '/api/auth/login'
+      preLoaderRoute: typeof ApiAuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/register': {
+      id: '/api/auth/register'
+      path: '/api/auth/register'
+      fullPath: '/api/auth/register'
+      preLoaderRoute: typeof ApiAuthRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/session': {
+      id: '/api/auth/session'
+      path: '/api/auth/session'
+      fullPath: '/api/auth/session'
+      preLoaderRoute: typeof ApiAuthSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/places/details': {
+      id: '/api/places/details'
+      path: '/api/places/details'
+      fullPath: '/api/places/details'
+      preLoaderRoute: typeof ApiPlacesDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/places/search': {
+      id: '/api/places/search'
+      path: '/api/places/search'
+      fullPath: '/api/places/search'
+      preLoaderRoute: typeof ApiPlacesSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/$slug': {
+      id: '/api/public/$slug'
+      path: '/api/public/$slug'
+      fullPath: '/api/public/$slug'
+      preLoaderRoute: typeof ApiPublicSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
+  ApiWorkspaceRoute: ApiWorkspaceRoute,
+  SiteSlugRoute: SiteSlugRoute,
+  ApiAiRewriteRoute: ApiAiRewriteRoute,
+  ApiAuthLoginRoute: ApiAuthLoginRoute,
+  ApiAuthRegisterRoute: ApiAuthRegisterRoute,
+  ApiAuthSessionRoute: ApiAuthSessionRoute,
+  ApiPlacesDetailsRoute: ApiPlacesDetailsRoute,
+  ApiPlacesSearchRoute: ApiPlacesSearchRoute,
+  ApiPublicSlugRoute: ApiPublicSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
