@@ -15,7 +15,7 @@ export function useTheme() {
   }, []);
   const setTheme = (t: Theme) => {
     document.documentElement.classList.toggle("dark", t === "dark");
-    document.documentElement.dataset.theme = t;
+    document.documentElement.dataset["theme"] = t;
     try {
       localStorage.setItem(KEY, t);
     } catch {
