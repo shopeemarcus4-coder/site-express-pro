@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Copy,
   CircleAlert,
   ExternalLink,
   FileText,
@@ -13,8 +14,12 @@ import {
   MoonStar,
   Plus,
   Search,
+  ShoppingBag,
   Sparkles,
+  Stethoscope,
   Trash2,
+  UtensilsCrossed,
+  X,
 } from "lucide-react";
 import {
   ContractsPage,
@@ -32,6 +37,7 @@ import {
   type AppWorkspace,
   type SiteRecord,
 } from "./workspace";
+import { placeDetailsDraft, type PlaceSearchResult } from "./places";
 import "../../styles/app.css";
 import { Logo } from "../../components/site/Logo";
 
@@ -39,7 +45,6 @@ type Mode = "loading" | "choose" | "local" | "account";
 type View = "dashboard" | "studio" | "contracts";
 type SaveStatus = "saved" | "pending" | "saving" | "error";
 type User = { id: string; organizationId: string; name: string; email: string };
-type Place = { placeId: string; name: string; address: string; category?: string };
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   try {
@@ -79,11 +84,15 @@ export function AppPage() {
     name: "",
     category: "",
     city: "",
+    address: "",
+    phone: "",
+    website: "",
+    mapsUrl: "",
     archetype: "servicos" as SiteArchetype,
   });
   const [siteQuery, setSiteQuery] = useState("");
   const [placeQuery, setPlaceQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<Place[]>([]);
+  const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [placesBusy, setPlacesBusy] = useState(false);
   const [placesMessage, setPlacesMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -93,6 +102,31 @@ export function AppPage() {
   const pendingRef = useRef<AppWorkspace | null>(null);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const placeSelectionRef = useRef(0);
+  const createDialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showCreate) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    createDialogRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowCreate(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [showCreate]);
+
+  function editNewSite(changes: Partial<typeof newSite>) {
+    // A late details response must not replace a field the user has already edited.
+    placeSelectionRef.current += 1;
+    setNewSite((current) => ({ ...current, ...changes }));
+  }
 
   const loadAccountWorkspace = useCallback(async (nextUser: User) => {
     const response = await fetch("/api/workspace", { credentials: "same-origin" });
@@ -307,6 +341,42 @@ export function AppPage() {
     setMessage(`Projeto “${site.title}” excluído. Os contratos relacionados foram preservados.`);
   }
 
+  function duplicateSite(site: SiteRecord) {
+    if (!site.publicData) return;
+    const id = crypto.randomUUID();
+    const title = `${site.title} — cópia`;
+    const slug = uniqueSlug(slugify(title), workspace.sites);
+    const now = new Date().toISOString();
+    const business = workspace.businesses.find((entry) => entry.id === site.businessId);
+    updateWorkspace({
+      ...workspace,
+      businesses: business
+        ? [...workspace.businesses, { ...business, id, name: title }]
+        : workspace.businesses,
+      sites: [
+        ...workspace.sites,
+        {
+          ...site,
+          id,
+          title,
+          slug,
+          businessId: id,
+          status: "draft",
+          publicData: {
+            ...site.publicData,
+            id,
+            name: title,
+            slug,
+            createdAt: now,
+            updatedAt: now,
+            business: { ...site.publicData.business, name: title },
+          },
+        },
+      ],
+    });
+    setMessage(`Cópia de “${site.title}” criada como rascunho.`);
+  }
+
   function createSite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newSite.name.trim();
@@ -318,6 +388,8 @@ export function AppPage() {
       name,
       category: newSite.category.trim(),
       city: newSite.city.trim(),
+      address: newSite.address.trim(),
+      mapsUrl: newSite.mapsUrl.trim(),
       archetype: newSite.archetype,
       isDemo: mode === "local",
     });
@@ -334,7 +406,16 @@ export function AppPage() {
       ...workspace,
       businesses: [
         ...workspace.businesses,
-        { id: project.id, name, category: project.business.category, city: project.business.city },
+        {
+          id: project.id,
+          name,
+          category: project.business.category,
+          city: project.business.city,
+          address: project.business.address,
+          mapsUrl: project.business.mapsUrl,
+          phone: newSite.phone.trim(),
+          website: newSite.website.trim(),
+        },
       ],
       sites: [...workspace.sites, site],
     });
@@ -342,7 +423,17 @@ export function AppPage() {
     setView("studio");
     setShowCreate(false);
     setMessage("");
-    setNewSite({ name: "", category: "", city: "", archetype: "servicos" });
+    placeSelectionRef.current += 1;
+    setNewSite({
+      name: "",
+      category: "",
+      city: "",
+      address: "",
+      phone: "",
+      website: "",
+      mapsUrl: "",
+      archetype: "servicos",
+    });
   }
 
   function editProject(project: SiteProject) {
@@ -421,7 +512,9 @@ export function AppPage() {
         throw new Error(
           errorText(body, "Busca externa indisponível. Preencha os dados manualmente."),
         );
-      setPlaceResults(Array.isArray(body["results"]) ? (body["results"] as Place[]) : []);
+      setPlaceResults(
+        Array.isArray(body["results"]) ? (body["results"] as PlaceSearchResult[]) : [],
+      );
       if (!Array.isArray(body["results"]) || body["results"].length === 0)
         setPlacesMessage("Nenhuma empresa encontrada. Você pode preencher os dados manualmente.");
     } catch (reason) {
@@ -433,15 +526,19 @@ export function AppPage() {
     }
   }
 
-  async function selectPlace(place: Place) {
+  async function selectPlace(place: PlaceSearchResult) {
+    const requestId = ++placeSelectionRef.current;
     setNewSite((current) => ({
       ...current,
       name: place.name,
       category: place.category ?? "",
-      city: current.city,
+      address: place.address,
+      phone: "",
+      website: "",
+      mapsUrl: "",
     }));
     setPlaceResults([]);
-    setPlacesMessage("Dados sugeridos carregados. Confira tudo antes de criar.");
+    setPlacesMessage("Dados encontrados no Google. Confira com a empresa antes de criar.");
     try {
       const response = await fetch("/api/places/details", {
         method: "POST",
@@ -449,14 +546,19 @@ export function AppPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ placeId: place.placeId }),
       });
-      if (response.ok) {
-        const body = await responseBody(response);
-        const business = body["business"] as Record<string, unknown> | undefined;
-        if (business && typeof business["name"] === "string")
-          setNewSite((current) => ({ ...current, name: business["name"] as string }));
-      }
+      const body = await responseBody(response);
+      if (!response.ok)
+        throw new Error(errorText(body, "Detalhes indisponíveis; revise os campos manualmente."));
+      const details = placeDetailsDraft(body["business"], place);
+      if (!details)
+        throw new Error("Os detalhes recebidos não correspondem à empresa selecionada.");
+      if (placeSelectionRef.current !== requestId) return;
+      setNewSite((current) => ({ ...current, ...details }));
     } catch {
-      /* Search fields remain editable. */
+      if (placeSelectionRef.current === requestId)
+        setPlacesMessage(
+          "Os detalhes da empresa não foram carregados. Confira os campos manualmente.",
+        );
     }
   }
 
@@ -610,24 +712,43 @@ export function AppPage() {
   return (
     <main className="sx-app">
       <aside className="sx-app-sidebar">
-        <a href="/" className="sx-app-brand">
+        <button
+          type="button"
+          className="sx-app-brand"
+          aria-label="Novo Site"
+          onClick={() => {
+            setView("dashboard");
+            setShowCreate(false);
+          }}
+        >
           <Logo />
-        </a>
-        <div className="sx-app-sidebar__label">ESPAÇO DE TRABALHO</div>
+        </button>
         <nav aria-label="Navegação do aplicativo">
           <button
             type="button"
             className={view === "dashboard" ? "is-active" : ""}
-            onClick={() => setView("dashboard")}
+            onClick={() => {
+              setView("dashboard");
+              setShowCreate(false);
+            }}
           >
-            <LayoutTemplate size={18} /> Sites
+            <Plus size={18} /> Novo Site
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setView("dashboard");
+              document.getElementById("sx-projects")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            <LayoutTemplate size={18} /> Meus Clientes
           </button>
           <button
             type="button"
             className={view === "contracts" ? "is-active" : ""}
             onClick={() => setView("contracts")}
           >
-            <FileText size={18} /> Clientes e contratos
+            <FileText size={18} /> Contratos
           </button>
         </nav>
         <div className="sx-app-sidebar__bottom">
@@ -655,7 +776,7 @@ export function AppPage() {
                 ? (activeSite?.title ?? "Editor")
                 : view === "contracts"
                   ? "Clientes e contratos"
-                  : "Seu próximo grande site começa aqui."}
+                  : "Novo Site"}
             </h1>
           </div>
           <div className="sx-app-header__actions">
@@ -771,36 +892,100 @@ export function AppPage() {
           </>
         ) : (
           <>
-            <section className="sx-app-welcome">
-              <div>
-                <span className="sx-app-kicker">CRIE COM LIBERDADE</span>
-                <h2>Ideias boas merecem um site à altura.</h2>
-                <p>
-                  Comece pelos dados do negócio. Depois escolha o estilo, edite cada seção e exporte
-                  quando estiver pronto.
-                </p>
+            <section className="sx-app-search-home">
+              <span className="sx-app-search-home__badge">
+                <span /> {mode === "account" ? "BUSCA DE EMPRESAS" : "CRIAÇÃO NO SEU NAVEGADOR"}
+              </span>
+              <h2>
+                Digite a empresa.
+                <br />
+                Receba o <em>site pronto.</em>
+              </h2>
+              <p>
+                Encontre os dados do negócio, confira as informações e crie uma página pronta para
+                personalizar, publicar ou exportar.
+              </p>
+              {mode === "account" ? (
+                <>
+                  <form
+                    className="sx-app-search-home__form"
+                    onSubmit={(event) => void searchPlaces(event)}
+                  >
+                    <Search size={22} aria-hidden="true" />
+                    <input
+                      aria-label="Nome da empresa e cidade"
+                      value={placeQuery}
+                      onChange={(event) => setPlaceQuery(event.target.value)}
+                      placeholder="Nome da empresa e cidade"
+                    />
+                    <button type="submit" disabled={placesBusy}>
+                      {placesBusy ? "Buscando…" : "Buscar empresa"} <ArrowRight size={17} />
+                    </button>
+                  </form>
+                  <button
+                    type="button"
+                    className="sx-app-search-home__manual"
+                    onClick={() => setShowCreate(true)}
+                  >
+                    Criar com dados manuais <ArrowRight size={14} />
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   className="sx-app-primary"
-                  onClick={() => setShowCreate((value) => !value)}
+                  onClick={() => setShowCreate(true)}
                 >
-                  <Plus size={18} /> Criar novo site
+                  <Plus size={18} /> Criar site agora
                 </button>
-              </div>
-              <div className="sx-app-welcome__art" aria-hidden="true">
-                <div>
-                  <span>SEU PRÓXIMO SITE</span>
-                  <strong>Design que mostra o melhor do seu negócio.</strong>
-                  <i>↗</i>
+              )}
+              {placesMessage && (
+                <p className="sx-app-search-home__message" role="status">
+                  {placesMessage}
+                </p>
+              )}
+              {placeResults.length > 0 && (
+                <div className="sx-app-search-home__results" aria-label="Empresas encontradas">
+                  {placeResults.map((place) => (
+                    <button
+                      key={place.placeId}
+                      type="button"
+                      onClick={() => {
+                        setShowCreate(true);
+                        void selectPlace(place);
+                      }}
+                    >
+                      <strong>{place.name}</strong>
+                      <span>{place.address}</span>
+                      <ArrowRight size={17} />
+                    </button>
+                  ))}
                 </div>
+              )}
+              <div className="sx-app-search-home__features">
+                <article>
+                  <UtensilsCrossed size={20} />
+                  <strong>Gastronomia artesanal</strong>
+                  <span>Cardápio, galeria e pedido direto.</span>
+                </article>
+                <article>
+                  <Stethoscope size={20} />
+                  <strong>Serviços & autoridade</strong>
+                  <span>Especialidades, história e contato.</span>
+                </article>
+                <article>
+                  <ShoppingBag size={20} />
+                  <strong>Produtos & vitrine</strong>
+                  <span>Catálogo visual e conversão.</span>
+                </article>
               </div>
             </section>
-            <section className="sx-app-projects">
+            <section className="sx-app-projects" id="sx-projects">
               <div className="sx-app-section-heading">
                 <div>
-                  <span className="sx-app-kicker">SEUS PROJETOS</span>
+                  <span className="sx-app-kicker">MEUS CLIENTES</span>
                   <h2>
-                    Sites em andamento{" "}
+                    Sites gerados{" "}
                     <em>{workspace.sites.filter((site) => site.publicData).length}</em>
                   </h2>
                 </div>
@@ -815,100 +1000,158 @@ export function AppPage() {
                 </label>
               </div>
               {showCreate && (
-                <div className="sx-app-create">
-                  <div>
-                    <span className="sx-app-kicker">NOVO PROJETO</span>
-                    <h3>Fale um pouco sobre o negócio.</h3>
-                    <p>Você pode completar ou mudar tudo no editor.</p>
-                  </div>
-                  {mode === "account" && (
-                    <form
-                      className="sx-app-place-search"
-                      onSubmit={(event) => void searchPlaces(event)}
+                <div
+                  className="sx-app-create-overlay"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) setShowCreate(false);
+                  }}
+                >
+                  <div
+                    ref={createDialogRef}
+                    tabIndex={-1}
+                    className="sx-app-create"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Criar novo site"
+                  >
+                    <button
+                      type="button"
+                      className="sx-app-create__close"
+                      aria-label="Fechar"
+                      onClick={() => setShowCreate(false)}
                     >
+                      <X size={20} />
+                    </button>
+                    <div>
+                      <span className="sx-app-kicker">NOVO PROJETO</span>
+                      <h3>Fale um pouco sobre o negócio.</h3>
+                      <p>Você pode completar ou mudar tudo no editor.</p>
+                    </div>
+                    {mode === "account" && (
+                      <form
+                        className="sx-app-place-search"
+                        onSubmit={(event) => void searchPlaces(event)}
+                      >
+                        <label>
+                          Buscar empresa cadastrada
+                          <input
+                            value={placeQuery}
+                            onChange={(event) => setPlaceQuery(event.target.value)}
+                            placeholder="Nome e cidade"
+                          />
+                        </label>
+                        <button type="submit" className="sx-app-secondary" disabled={placesBusy}>
+                          <Search size={16} />
+                          {placesBusy ? "Buscando…" : "Buscar"}
+                        </button>
+                        {placesMessage && <small>{placesMessage}</small>}
+                        {placeResults.length > 0 && (
+                          <div className="sx-app-place-results">
+                            {placeResults.map((place) => (
+                              <button
+                                key={place.placeId}
+                                type="button"
+                                onClick={() => void selectPlace(place)}
+                              >
+                                <strong>{place.name}</strong>
+                                <span>{place.address}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </form>
+                    )}
+                    <form className="sx-app-create__form" onSubmit={createSite}>
                       <label>
-                        Buscar empresa cadastrada
+                        Nome do negócio
                         <input
-                          value={placeQuery}
-                          onChange={(event) => setPlaceQuery(event.target.value)}
-                          placeholder="Nome e cidade"
+                          value={newSite.name}
+                          onChange={(event) => editNewSite({ name: event.target.value })}
+                          required
+                          placeholder="Ex.: Estúdio Aurora"
                         />
                       </label>
-                      <button type="submit" className="sx-app-secondary" disabled={placesBusy}>
-                        <Search size={16} />
-                        {placesBusy ? "Buscando…" : "Buscar"}
-                      </button>
-                      {placesMessage && <small>{placesMessage}</small>}
-                      {placeResults.length > 0 && (
-                        <div className="sx-app-place-results">
-                          {placeResults.map((place) => (
-                            <button
-                              key={place.placeId}
-                              type="button"
-                              onClick={() => void selectPlace(place)}
-                            >
-                              <strong>{place.name}</strong>
-                              <span>{place.address}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <label>
+                        Segmento
+                        <input
+                          value={newSite.category}
+                          onChange={(event) => editNewSite({ category: event.target.value })}
+                          placeholder="Ex.: Arquitetura"
+                        />
+                      </label>
+                      <label>
+                        Cidade
+                        <input
+                          value={newSite.city}
+                          onChange={(event) => editNewSite({ city: event.target.value })}
+                          placeholder="Ex.: São Paulo"
+                        />
+                      </label>
+                      <label>
+                        Endereço (opcional)
+                        <input
+                          value={newSite.address}
+                          onChange={(event) => editNewSite({ address: event.target.value })}
+                          placeholder="Rua, número, bairro"
+                        />
+                      </label>
+                      <label>
+                        Telefone comercial (opcional)
+                        <input
+                          type="tel"
+                          value={newSite.phone}
+                          onChange={(event) => editNewSite({ phone: event.target.value })}
+                          placeholder="Não será tratado como WhatsApp"
+                        />
+                      </label>
+                      <label>
+                        Site atual da empresa (opcional)
+                        <input
+                          type="url"
+                          value={newSite.website}
+                          onChange={(event) => editNewSite({ website: event.target.value })}
+                          placeholder="https://exemplo.com.br"
+                        />
+                      </label>
+                      <label>
+                        Link do mapa (opcional)
+                        <input
+                          type="url"
+                          value={newSite.mapsUrl}
+                          onChange={(event) => editNewSite({ mapsUrl: event.target.value })}
+                          placeholder="https://www.google.com/maps/..."
+                        />
+                      </label>
+                      <label>
+                        Modelo inicial
+                        <select
+                          value={newSite.archetype}
+                          onChange={(event) =>
+                            editNewSite({ archetype: event.target.value as SiteArchetype })
+                          }
+                        >
+                          <option value="servicos">Serviços</option>
+                          <option value="gastronomia">Gastronomia</option>
+                          <option value="produtos">Produtos</option>
+                        </select>
+                      </label>
+                      <div className="sx-app-create__actions">
+                        <button
+                          type="button"
+                          className="sx-app-secondary"
+                          onClick={() => {
+                            placeSelectionRef.current += 1;
+                            setShowCreate(false);
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                        <button type="submit" className="sx-app-primary">
+                          Criar site <ArrowRight size={17} />
+                        </button>
+                      </div>
                     </form>
-                  )}
-                  <form className="sx-app-create__form" onSubmit={createSite}>
-                    <label>
-                      Nome do negócio
-                      <input
-                        value={newSite.name}
-                        onChange={(event) => setNewSite({ ...newSite, name: event.target.value })}
-                        required
-                        placeholder="Ex.: Estúdio Aurora"
-                      />
-                    </label>
-                    <label>
-                      Segmento
-                      <input
-                        value={newSite.category}
-                        onChange={(event) =>
-                          setNewSite({ ...newSite, category: event.target.value })
-                        }
-                        placeholder="Ex.: Arquitetura"
-                      />
-                    </label>
-                    <label>
-                      Cidade
-                      <input
-                        value={newSite.city}
-                        onChange={(event) => setNewSite({ ...newSite, city: event.target.value })}
-                        placeholder="Ex.: São Paulo"
-                      />
-                    </label>
-                    <label>
-                      Modelo inicial
-                      <select
-                        value={newSite.archetype}
-                        onChange={(event) =>
-                          setNewSite({ ...newSite, archetype: event.target.value as SiteArchetype })
-                        }
-                      >
-                        <option value="servicos">Serviços</option>
-                        <option value="gastronomia">Gastronomia</option>
-                        <option value="produtos">Produtos</option>
-                      </select>
-                    </label>
-                    <div className="sx-app-create__actions">
-                      <button
-                        type="button"
-                        className="sx-app-secondary"
-                        onClick={() => setShowCreate(false)}
-                      >
-                        Cancelar
-                      </button>
-                      <button type="submit" className="sx-app-primary">
-                        Criar site <ArrowRight size={17} />
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 </div>
               )}
               {sites.length ? (
@@ -950,12 +1193,41 @@ export function AppPage() {
                           </button>
                           <button
                             type="button"
+                            aria-label={`Duplicar ${site.title}`}
+                            title="Duplicar"
+                            onClick={() => duplicateSite(site)}
+                          >
+                            <Copy size={16} />
+                          </button>
+                          <button
+                            type="button"
                             aria-label={`Excluir ${site.title}`}
                             onClick={() => setDeleteConfirmId(site.id)}
                           >
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        {mode === "account" && (
+                          <button
+                            type="button"
+                            className="sx-app-site-card__publish"
+                            disabled={actionBusy || saveStatus === "error"}
+                            onClick={() =>
+                              void setPublication(
+                                site,
+                                site.status === "published" ? "suspended" : "published",
+                              )
+                            }
+                          >
+                            <span
+                              className={site.status === "published" ? "is-on" : ""}
+                              aria-hidden="true"
+                            />
+                            {site.status === "published"
+                              ? "No ar · suspender"
+                              : "Fora do ar · publicar"}
+                          </button>
+                        )}
                         {deleteConfirmId === site.id && (
                           <div className="sx-app-site-card__confirm">
                             <p>Excluir este projeto? Contratos existentes serão preservados.</p>

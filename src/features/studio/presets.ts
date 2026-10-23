@@ -246,6 +246,7 @@ export function createSiteProject(input: BusinessInput): SiteProject {
       videoTitle: "Conheça mais sobre nós",
       videoUrl: "",
     },
+    marketing: { seoTitle: "", seoDescription: "" },
     sections: SECTION_ORDER.map((id) => ({
       id,
       enabled: ["hero", "services", "about", "contact"].includes(id),

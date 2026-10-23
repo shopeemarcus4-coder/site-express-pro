@@ -28,9 +28,13 @@ export const Route = createFileRoute("/site/$slug")({
   head: ({ loaderData }) => {
     const content = loaderData?.content;
     const title = content
-      ? `${content.business.name} — ${content.business.category || "Site oficial"}`
+      ? content.marketing?.seoTitle?.trim() ||
+        `${content.business.name} — ${content.business.category || "Site oficial"}`
       : "Site Express";
-    const description = content?.content.heroSubtitle || "Site criado com Site Express.";
+    const description =
+      content?.marketing?.seoDescription?.trim() ||
+      content?.content.heroSubtitle ||
+      "Site criado com Site Express.";
     return {
       meta: [
         { title },

@@ -35,7 +35,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-pressed={theme === t}
       aria-label={label}
       className={cn(
-        "grid size-8 place-items-center rounded-full transition-colors duration-200",
+        "grid size-11 place-items-center rounded-full transition-colors duration-200",
         theme === t
           ? "bg-surface text-foreground shadow-card"
           : "text-muted-foreground hover:text-foreground",

@@ -6,7 +6,6 @@ import {
   MonitorSmartphone,
   MousePointerClick,
   Palette,
-  Play,
   Search,
   Smartphone,
   Zap,
@@ -15,9 +14,8 @@ import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { StepCards } from "@/components/site/Steps";
+import { Scene } from "@/components/site/Scene";
 import { TEMPLATES } from "@/lib/templates";
-import sceneDay from "@/assets/scene-day.png";
-import sceneNight from "@/assets/scene-night.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,28 +36,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Home,
 });
-
-function Scene({ className }: { className?: string }) {
-  return (
-    <div className={className} aria-hidden>
-      <img
-        src={sceneDay}
-        alt=""
-        width={1200}
-        height={896}
-        className="scene-day absolute inset-0 size-full object-cover object-[70%_center]"
-        fetchPriority="high"
-      />
-      <img
-        src={sceneNight}
-        alt=""
-        width={1200}
-        height={896}
-        className="scene-night absolute inset-0 size-full object-cover object-[70%_center]"
-      />
-    </div>
-  );
-}
 
 const BENEFITS = [
   {
@@ -104,7 +80,7 @@ function Home() {
       <section className="relative overflow-hidden">
         <SiteHeader overlay />
         {/* desktop scene */}
-        <Scene className="absolute inset-0 hidden md:block" />
+        <Scene className="absolute inset-0 hidden md:block" priority />
         <div aria-hidden className="absolute inset-0 hidden bg-hero-fade md:block" />
 
         <div className="relative mx-auto max-w-7xl px-5 pb-10 pt-28 md:min-h-[min(820px,92vh)] md:px-8 md:pb-44 md:pt-40">
@@ -113,7 +89,7 @@ function Home() {
               <p className="eyebrow text-hero-muted">Sua ideia. Seu site.</p>
               <span aria-hidden className="h-px w-20 bg-hero-muted/60" />
             </div>
-            <h1 className="mt-6 text-[2.75rem] font-bold leading-[1.02] text-hero-foreground sm:text-6xl lg:text-[4.4rem]">
+            <h1 className="mt-6 text-[2.75rem] font-normal leading-[1.02] text-hero-foreground sm:text-6xl lg:text-[4.4rem]">
               Sites profissionais <span className="text-brand-text">do seu jeito.</span>
             </h1>
             <p className="mt-6 max-w-md text-lg leading-relaxed text-hero-muted">
@@ -131,7 +107,7 @@ function Home() {
                 className="group inline-flex items-center gap-3 text-sm font-medium text-hero-foreground"
               >
                 <span className="grid size-11 place-items-center rounded-full border border-hero-foreground/40 transition-colors group-hover:border-hero-foreground">
-                  <Play className="size-4 fill-current" />
+                  <ArrowRight className="size-4" />
                 </span>
                 Ver como funciona
               </Link>
@@ -152,7 +128,7 @@ function Home() {
 
         {/* mobile scene crop, after text */}
         <div className="relative aspect-[4/3] md:hidden">
-          <Scene className="absolute inset-0" />
+          <Scene className="absolute inset-0" priority />
         </div>
       </section>
 
@@ -166,7 +142,7 @@ function Home() {
         <div className="grid gap-12 lg:grid-cols-[1fr_1.3fr] lg:gap-20">
           <div>
             <p className="eyebrow text-muted-foreground">Por que Site Express</p>
-            <h2 className="mt-4 text-3xl font-bold leading-tight md:text-[2.6rem]">
+            <h2 className="mt-4 text-3xl font-normal leading-tight md:text-[2.6rem]">
               O acabamento de um estúdio, a facilidade de um editor.
             </h2>
           </div>
@@ -188,7 +164,7 @@ function Home() {
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="eyebrow text-muted-foreground">Modelos por segmento</p>
-              <h2 className="mt-4 text-3xl font-bold md:text-[2.6rem]">
+              <h2 className="mt-4 text-3xl font-normal md:text-[2.6rem]">
                 Um ponto de partida para cada negócio.
               </h2>
             </div>
@@ -233,7 +209,7 @@ function Home() {
       {/* Differentials */}
       <section className="mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-28">
         <p className="eyebrow text-muted-foreground">Diferenciais</p>
-        <h2 className="mt-4 max-w-2xl text-3xl font-bold md:text-[2.6rem]">
+        <h2 className="mt-4 max-w-2xl text-3xl font-normal md:text-[2.6rem]">
           Feito para quem entrega sites a clientes reais.
         </h2>
         <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-3">
@@ -263,18 +239,12 @@ function Home() {
 
       {/* Final CTA */}
       <section className="px-5 pb-20 md:px-8 md:pb-28">
-        <div className="dark relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-background text-foreground">
-          <img
-            src={sceneNight}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            className="absolute inset-0 size-full object-cover object-[75%_60%] opacity-60"
-          />
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-background text-foreground">
+          <Scene className="absolute inset-0 opacity-80 dark:opacity-60" />
           <div aria-hidden className="absolute inset-0 bg-hero-fade" />
           <div className="relative px-7 py-14 md:px-14 md:py-20">
             <p className="eyebrow text-hero-muted">Seu site começa aqui</p>
-            <h2 className="mt-4 max-w-lg text-3xl font-bold text-hero-foreground md:text-5xl">
+            <h2 className="mt-4 max-w-lg text-3xl font-normal text-hero-foreground md:text-5xl">
               Escolha um modelo e comece agora.
             </h2>
             <Button asChild variant="brand" size="xl" className="mt-8">

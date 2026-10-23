@@ -74,6 +74,12 @@ export const siteProjectSchema: z.ZodType<SiteProject> = z.object({
     videoTitle: shortText,
     videoUrl: text,
   }),
+  marketing: z
+    .object({
+      seoTitle: z.string().max(70),
+      seoDescription: z.string().max(170),
+    })
+    .optional(),
   sections: z
     .array(
       z.object({

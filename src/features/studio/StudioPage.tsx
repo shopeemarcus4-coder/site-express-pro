@@ -5,14 +5,16 @@ import {
   ArrowLeft,
   ArrowUp,
   BriefcaseBusiness,
-  Download,
   Eye,
+  FileCode2,
   ImagePlus,
   LayoutGrid,
   Monitor,
   Palette,
+  Package,
   Plus,
   Redo2,
+  SearchCheck,
   Smartphone,
   Tablet,
   Trash2,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 import { PALETTES, SECTION_LABELS } from "./presets";
 import { SitePreview, type EditableField } from "./SitePreview";
+import { createZip } from "./zip";
 import type {
   SiteArchetype,
   SiteFaq,
@@ -43,7 +46,7 @@ interface StudioPageProps {
   onBack: () => void;
 }
 
-type Tab = "content" | "sections" | "style" | "media";
+type Tab = "content" | "sections" | "style" | "media" | "marketing";
 type Viewport = "desktop" | "tablet" | "mobile";
 
 const uid = () =>
@@ -104,10 +107,12 @@ function buildStandaloneHtml(project: SiteProject) {
     node.removeAttribute("data-empty");
   });
   const description =
+    project.marketing?.seoDescription.trim() ||
     [project.business.category, project.business.city].filter(Boolean).join(" em ") ||
     project.content.heroSubtitle;
   const safeTitle = escapeHtml(
-    `${project.business.name} — ${project.business.category || "Site oficial"}`,
+    project.marketing?.seoTitle.trim() ||
+      `${project.business.name} — ${project.business.category || "Site oficial"}`,
   );
   const safeDescription = escapeHtml(description);
   const css = studioCss.replace(/<\/style/gi, "<\\/style");
@@ -209,6 +214,11 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
     });
   const editAppearance = (values: Partial<SiteProject["appearance"]>) =>
     commit({ ...project, appearance: { ...project.appearance, ...values } });
+  const editMarketing = (values: Partial<NonNullable<SiteProject["marketing"]>>) =>
+    commit({
+      ...project,
+      marketing: { seoTitle: "", seoDescription: "", ...project.marketing, ...values },
+    });
   const editField = (field: EditableField, value: string) => {
     if (field.startsWith("business."))
       editBusiness(field.slice(9) as keyof SiteProject["business"], value);
@@ -319,6 +329,23 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
     );
     announce("HTML baixado. Links e mídias externas exigem internet.");
   };
+  const saveZip = () => {
+    try {
+      const html = buildStandaloneHtml(project);
+      const readme = `SITE EXPRESS · PACOTE DO SITE\n\n1. Extraia o arquivo ZIP.\n2. Abra index.html no navegador para conferir o site.\n3. Para publicar, envie index.html para a raiz de uma hospedagem de arquivos estáticos.\n\nOs estilos e as imagens enviadas pelo editor estão incorporados em index.html. Links de WhatsApp, mapas, vídeos e imagens informadas por URL externa exigem internet.\n\nAntes da publicação, revise os textos, o número de contato e as autorizações de uso de fotos e depoimentos. Este pacote não publica o site automaticamente.\n`;
+      const archive = createZip([
+        { name: "index.html", content: html },
+        { name: "README.txt", content: readme },
+      ]);
+      downloadBlob(
+        new Blob([new Uint8Array(archive).buffer], { type: "application/zip" }),
+        `${project.slug || "meu-site"}.zip`,
+      );
+      announce("ZIP baixado. Extraia e abra index.html para conferir.");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "Não foi possível preparar o ZIP.");
+    }
+  };
   const previewHtml = () => {
     const html = buildStandaloneHtml(project);
     const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
@@ -377,10 +404,19 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
           </button>
           <button
             type="button"
-            className="sx-studio-button sx-studio-button--dark"
+            className="sx-studio-icon"
+            title="Baixar apenas o HTML"
+            aria-label="Baixar apenas o HTML"
             onClick={saveHtml}
           >
-            <Download size={15} /> Baixar site
+            <FileCode2 size={17} />
+          </button>
+          <button
+            type="button"
+            className="sx-studio-button sx-studio-button--dark"
+            onClick={saveZip}
+          >
+            <Package size={15} /> Baixar ZIP
           </button>
         </div>
       </header>
@@ -397,6 +433,7 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
                 ["sections", LayoutGrid, "Seções"],
                 ["style", Palette, "Estilo"],
                 ["media", ImagePlus, "Mídia"],
+                ["marketing", SearchCheck, "SEO"],
               ] as const
             ).map(([id, Icon, label]) => (
               <button
@@ -925,6 +962,31 @@ export function StudioPage({ project, onChange, onBack }: StudioPageProps) {
                       </div>
                     ))}
                   </div>
+                </Group>
+              </>
+            )}
+            {tab === "marketing" && (
+              <>
+                <Group title="Como o site aparece nas buscas">
+                  <p className="sx-studio-hint">
+                    Estes textos aparecem nos resultados de busca e na prévia de links. Escreva
+                    apenas informações confirmadas sobre o negócio.
+                  </p>
+                  <Field
+                    label="Título para buscadores"
+                    value={project.marketing?.seoTitle || ""}
+                    onCommit={(value) => editMarketing({ seoTitle: value.slice(0, 70) })}
+                    placeholder={`${project.business.name} — ${project.business.city || "Site oficial"}`}
+                    hint="Até 70 caracteres. Se vazio, usamos o nome da empresa."
+                  />
+                  <Field
+                    label="Descrição para buscadores"
+                    value={project.marketing?.seoDescription || ""}
+                    onCommit={(value) => editMarketing({ seoDescription: value.slice(0, 170) })}
+                    multiline
+                    placeholder={project.content.heroSubtitle}
+                    hint="Até 170 caracteres. Se vazio, usamos a descrição do site."
+                  />
                 </Group>
               </>
             )}

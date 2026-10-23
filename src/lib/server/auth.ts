@@ -31,8 +31,8 @@ export function isSameOrigin(request: Request): boolean {
 }
 
 export function sessionCookie(request: Request, token: string, maxAgeSeconds: number): string {
-  const secure =
-    new URL(request.url).protocol === "https:" || process.env["NODE_ENV"] === "production";
+  // Nitro passes the original external URL. Do not trust client-supplied forwarded-proto headers.
+  const secure = new URL(request.url).protocol === "https:";
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
 }
 

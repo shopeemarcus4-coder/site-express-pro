@@ -21,6 +21,7 @@ const contract: ContractRecord = {
   providerName: "Agência",
   clientName: "Cliente",
   scope: "Atualizações mensais",
+  draftText: "Texto fornecido pelo proprietário.",
   amountCents: 10001,
   installments: 3,
   startsOn: "2028-01-01",
@@ -53,7 +54,9 @@ describe("calendar-date reminders", () => {
       {
         id: "contract-1:15",
         contractId: "contract-1",
+        clientId: "business-1",
         title: "Manutenção do site",
+        endsOn: "2028-03-31",
         daysBefore: 15,
       },
     ]);
@@ -84,6 +87,7 @@ describe("shared workspace adapter", () => {
     const state = contractsStateFromWorkspace(workspace);
     expect(state.clients[0]?.sites[0]?.id).toBe("site-1");
     expect(state.contracts).toHaveLength(1);
+    expect(state.contracts[0]?.draftText).toBe("Texto fornecido pelo proprietário.");
     const merged = mergeContractsStateIntoWorkspace(workspace, {
       ...state,
       clients: state.clients.map((client) => ({ ...client, phone: "1234" })),
@@ -97,6 +101,7 @@ describe("shared workspace adapter", () => {
     });
     expect(merged.contracts.find((item) => item.id === "contract-1")).toMatchObject({
       businessId: "business-1",
+      draftText: "Texto fornecido pelo proprietário.",
     });
   });
 });

@@ -82,6 +82,10 @@ export interface SiteProject {
     videoTitle: string;
     videoUrl: string;
   };
+  marketing?: {
+    seoTitle: string;
+    seoDescription: string;
+  } | undefined;
   sections: SiteSection[];
   items: SiteItem[];
   gallery: string[];

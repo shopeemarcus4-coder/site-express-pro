@@ -52,7 +52,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           </Button>
           <button
             type="button"
-            className="grid size-10 place-items-center rounded-full text-foreground lg:hidden"
+            className="grid size-11 place-items-center rounded-full text-foreground lg:hidden"
             aria-label={open ? "Fechar menu" : "Abrir menu"}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}

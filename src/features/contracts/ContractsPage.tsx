@@ -113,6 +113,12 @@ function ContractPrint({
           <dt>Escopo informado</dt>
           <dd className="sx-contracts__print-scope">{contract.scope || "A preencher"}</dd>
         </div>
+        {contract.draftText?.trim() ? (
+          <div>
+            <dt>Texto da minuta</dt>
+            <dd className="sx-contracts__print-scope">{contract.draftText}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Vigência</dt>
           <dd>
@@ -279,7 +285,14 @@ export function ContractsPage({ onBack, value, onChange }: ContractsPageProps) {
     updateState((previous) => ({
       ...previous,
       contracts: previous.contracts.map((contract) =>
-        contract.id === activeContract.id ? { ...contract, ...changes, updatedAt } : contract,
+        contract.id === activeContract.id
+          ? {
+              ...contract,
+              ...changes,
+              status: changes.status ?? "draft",
+              updatedAt,
+            }
+          : contract,
       ),
     }));
     setMessage("");
@@ -339,11 +352,31 @@ export function ContractsPage({ onBack, value, onChange }: ContractsPageProps) {
         ) : null}
         {alerts.length ? (
           <div className="sx-contracts__notice" role="status">
-            <Bell size={17} />{" "}
-            {alerts.length === 1
-              ? "Uma minuta marcada para revisão atinge um prazo de aviso hoje."
-              : `${alerts.length} minutas marcadas para revisão atingem prazos de aviso hoje.`}{" "}
-            Confira as datas antes de qualquer contato.
+            <Bell size={17} aria-hidden="true" />
+            <div>
+              <strong>
+                {alerts.length === 1
+                  ? "Uma minuta exige atenção hoje"
+                  : `${alerts.length} minutas exigem atenção hoje`}
+              </strong>
+              <span> · Confira as datas antes de qualquer contato.</span>
+              <div>
+                {alerts.map((alert) => (
+                  <button
+                    key={alert.id}
+                    type="button"
+                    className="sx-contracts__text-button"
+                    onClick={() => {
+                      setClientId(alert.clientId);
+                      setContractId(alert.contractId);
+                    }}
+                  >
+                    {alert.title} · {alert.daysBefore} dias até o fim da vigência em{" "}
+                    {formatCalendarDate(alert.endsOn)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
         {message ? (
@@ -742,6 +775,18 @@ export function ContractsPage({ onBack, value, onChange }: ContractsPageProps) {
                           maxLength={4000}
                           placeholder="Descreva apenas os serviços e condições realmente acordados."
                           aria-invalid={showErrors && Boolean(errors["scope"])}
+                        />
+                      </Field>
+                      <Field
+                        label="Texto da minuta (opcional)"
+                        className="sx-contracts__field--full"
+                      >
+                        <textarea
+                          value={activeContract.draftText ?? ""}
+                          onChange={(event) => editContract({ draftText: event.target.value })}
+                          rows={8}
+                          maxLength={20000}
+                          placeholder="Escreva aqui apenas o texto revisado ou fornecido por você. O app não acrescenta cláusulas jurídicas automaticamente."
                         />
                       </Field>
                       <Field
