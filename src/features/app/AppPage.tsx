@@ -33,6 +33,7 @@ import {
   type SiteRecord,
 } from "./workspace";
 import "../../styles/app.css";
+import { Logo } from "../../components/site/Logo";
 
 type Mode = "loading" | "choose" | "local" | "account";
 type View = "dashboard" | "studio" | "contracts";
@@ -256,7 +257,7 @@ export function AppPage() {
   }
 
   async function logout() {
-    if (saveStatus === "pending" || saveStatus === "saving") {
+    if (saveStatus === "pending" || saveStatus === "saving" || saveStatus === "error") {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (!(await flushSave())) return;
     }
@@ -365,6 +366,18 @@ export function AppPage() {
 
   async function setPublication(site: SiteRecord, status: "published" | "suspended") {
     if (mode !== "account" || !site.publicData) return;
+    if (status === "published") {
+      const contact = site.publicData.business;
+      const hasPhone = contact.whatsapp.replace(/\D/g, "").length >= 10;
+      const hasAddress = Boolean(contact.address.trim());
+      const hasMap = /^https?:\/\//i.test(contact.mapsUrl);
+      if (!hasPhone && !hasAddress && !hasMap) {
+        setMessage(
+          "Adicione ao menos um contato válido (WhatsApp, endereço ou mapa) antes de publicar.",
+        );
+        return;
+      }
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
     setActionBusy(true);
     setMessage("");
@@ -470,8 +483,7 @@ export function AppPage() {
       <main className="sx-app-auth">
         <div className="sx-app-auth__top">
           <a href="/" className="sx-app-brand">
-            site<span>express</span>
-            <i>.</i>
+            <Logo />
           </a>
           <a href="/" className="sx-app-back">
             <ArrowLeft size={16} /> Voltar ao início
@@ -599,8 +611,7 @@ export function AppPage() {
     <main className="sx-app">
       <aside className="sx-app-sidebar">
         <a href="/" className="sx-app-brand">
-          site<span>express</span>
-          <i>.</i>
+          <Logo />
         </a>
         <div className="sx-app-sidebar__label">ESPAÇO DE TRABALHO</div>
         <nav aria-label="Navegação do aplicativo">
@@ -664,6 +675,11 @@ export function AppPage() {
                     ? "Salvando"
                     : "Falha ao salvar"}
             </span>
+            {mode === "account" && saveStatus === "error" && (
+              <button type="button" className="sx-app-secondary" onClick={() => void flushSave()}>
+                Tentar salvar
+              </button>
+            )}
             {view === "studio" && (
               <button
                 type="button"

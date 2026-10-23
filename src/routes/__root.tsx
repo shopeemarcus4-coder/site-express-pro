@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { themeInitScript } from "@/components/site/theme";
 
 function NotFoundComponent() {
   return (
@@ -19,7 +20,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Confira o endereço ou volte ao início.</p>
+        <p className="mt-2 text-sm text-muted-foreground">O endereço não existe ou foi movido.</p>
         <div className="mt-6">
           <Link
             to="/"
@@ -79,13 +80,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Site Express — Sites profissionais do seu jeito" },
       {
         name: "description",
-        content: "Crie, edite e exporte sites profissionais para o seu negócio com o Site Express.",
-      },
-      { name: "author", content: "Site Express" },
-      { property: "og:title", content: "Site Express — Sites profissionais do seu jeito" },
-      {
-        property: "og:description",
-        content: "Crie, edite e exporte sites profissionais para o seu negócio.",
+        content:
+          "Pesquise sua empresa, complete as informações e edite um site profissional e responsivo.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -95,7 +91,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -106,8 +101,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <HeadContent />
       </head>
       <body>

@@ -3,11 +3,12 @@ import type { SiteProject } from "../../features/studio/types";
 
 const text = z.string().max(10_000);
 const shortText = z.string().max(500);
+const media = z.string().max(250_000);
 const item = z.object({
   id: shortText.min(1),
   title: shortText,
   description: text,
-  image: text.optional(),
+  image: media.optional(),
   price: shortText.optional(),
 });
 const review = z.object({
@@ -38,7 +39,7 @@ export const siteProjectSchema: z.ZodType<SiteProject> = z.object({
     address: text,
     whatsapp: shortText,
     mapsUrl: text,
-    logoUrl: text,
+    logoUrl: media,
   }),
   appearance: z.object({
     paletteId: shortText,
@@ -52,7 +53,7 @@ export const siteProjectSchema: z.ZodType<SiteProject> = z.object({
     }),
     headingFont: z.enum(["editorial", "modern", "classic"]),
     heroLayout: z.enum(["immersive", "split", "showcase"]),
-    heroImage: text,
+    heroImage: media,
     heroImageAlt: text,
     heroPosition: shortText,
   }),
@@ -92,7 +93,7 @@ export const siteProjectSchema: z.ZodType<SiteProject> = z.object({
     )
     .max(20),
   items: z.array(item).max(100),
-  gallery: z.array(text).max(100),
+  gallery: z.array(media).max(8),
   reviews: z.array(review).max(100),
   faqs: z.array(faq).max(100),
 });

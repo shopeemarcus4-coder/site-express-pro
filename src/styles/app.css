@@ -2,7 +2,7 @@
 .sx-app-auth,
 .sx-app-loading,
 .sx-public-message {
-  font-family: "SX Outfit", "Segoe UI", sans-serif;
+  font-family: "Outfit", "Segoe UI", sans-serif;
   color: #1a1a16;
 }
 .sx-app *,
@@ -32,10 +32,10 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 242px minmax(0, 1fr);
-  background: #f7f6f2;
+  background: #f7f8fa;
 }
 .sx-app-sidebar {
-  background: #181813;
+  background: #10243c;
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -50,6 +50,9 @@
   font-size: 27px;
   line-height: 1;
   white-space: nowrap;
+}
+.sx-app-sidebar .sx-app-brand > span {
+  color: #fff;
 }
 .sx-app-brand span {
   font-weight: 350;
@@ -235,7 +238,7 @@
   margin-top: 34px;
   border-radius: 12px;
   min-height: 320px;
-  background: #202019;
+  background: #10243c;
   color: #fff;
   overflow: hidden;
   display: grid;
@@ -272,7 +275,7 @@
     #e6b231 32%,
     #876927 32.2%,
     #333125 63%,
-    #202019 66%
+    #10243c 66%
   );
   display: grid;
   place-items: center;
@@ -606,7 +609,7 @@
 }
 .sx-app-auth {
   min-height: 100vh;
-  background: #f6f4ee;
+  background: #f7f8fa;
   padding: 28px max(24px, 4vw) 70px;
 }
 .sx-app-auth__top {
@@ -738,7 +741,7 @@
   justify-content: center;
   flex-direction: column;
   gap: 14px;
-  background: #f7f6f2;
+  background: #f7f8fa;
   text-align: center;
   padding: 30px;
 }

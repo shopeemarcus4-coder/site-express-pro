@@ -10,7 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AjudaRouteImport } from './routes/ajuda'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as ComoFuncionaRouteImport } from './routes/como-funciona'
+import { Route as ModelosRouteImport } from './routes/modelos'
+import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
 import { Route as SiteSlugRouteImport } from './routes/site/$slug'
 import { Route as ApiAiRewriteRouteImport } from './routes/api/ai/rewrite'
@@ -26,9 +30,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AjudaRoute = AjudaRouteImport.update({
+  id: '/ajuda',
+  path: '/ajuda',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComoFuncionaRoute = ComoFuncionaRouteImport.update({
+  id: '/como-funciona',
+  path: '/como-funciona',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelosRoute = ModelosRouteImport.update({
+  id: '/modelos',
+  path: '/modelos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrecosRoute = PrecosRouteImport.update({
+  id: '/precos',
+  path: '/precos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWorkspaceRoute = ApiWorkspaceRouteImport.update({
@@ -79,7 +103,11 @@ const ApiPublicSlugRoute = ApiPublicSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ajuda': typeof AjudaRoute
   '/app': typeof AppRoute
+  '/como-funciona': typeof ComoFuncionaRoute
+  '/modelos': typeof ModelosRoute
+  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
@@ -92,7 +120,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ajuda': typeof AjudaRoute
   '/app': typeof AppRoute
+  '/como-funciona': typeof ComoFuncionaRoute
+  '/modelos': typeof ModelosRoute
+  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
@@ -106,7 +138,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ajuda': typeof AjudaRoute
   '/app': typeof AppRoute
+  '/como-funciona': typeof ComoFuncionaRoute
+  '/modelos': typeof ModelosRoute
+  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
@@ -121,7 +157,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ajuda'
     | '/app'
+    | '/como-funciona'
+    | '/modelos'
+    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/rewrite'
@@ -134,7 +174,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ajuda'
     | '/app'
+    | '/como-funciona'
+    | '/modelos'
+    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/rewrite'
@@ -147,7 +191,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ajuda'
     | '/app'
+    | '/como-funciona'
+    | '/modelos'
+    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/rewrite'
@@ -161,7 +209,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AjudaRoute: typeof AjudaRoute
   AppRoute: typeof AppRoute
+  ComoFuncionaRoute: typeof ComoFuncionaRoute
+  ModelosRoute: typeof ModelosRoute
+  PrecosRoute: typeof PrecosRoute
   ApiWorkspaceRoute: typeof ApiWorkspaceRoute
   SiteSlugRoute: typeof SiteSlugRoute
   ApiAiRewriteRoute: typeof ApiAiRewriteRoute
@@ -182,11 +234,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ajuda': {
+      id: '/ajuda'
+      path: '/ajuda'
+      fullPath: '/ajuda'
+      preLoaderRoute: typeof AjudaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/como-funciona': {
+      id: '/como-funciona'
+      path: '/como-funciona'
+      fullPath: '/como-funciona'
+      preLoaderRoute: typeof ComoFuncionaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/modelos': {
+      id: '/modelos'
+      path: '/modelos'
+      fullPath: '/modelos'
+      preLoaderRoute: typeof ModelosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/precos': {
+      id: '/precos'
+      path: '/precos'
+      fullPath: '/precos'
+      preLoaderRoute: typeof PrecosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/workspace': {
@@ -257,7 +337,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AjudaRoute: AjudaRoute,
   AppRoute: AppRoute,
+  ComoFuncionaRoute: ComoFuncionaRoute,
+  ModelosRoute: ModelosRoute,
+  PrecosRoute: PrecosRoute,
   ApiWorkspaceRoute: ApiWorkspaceRoute,
   SiteSlugRoute: SiteSlugRoute,
   ApiAiRewriteRoute: ApiAiRewriteRoute,

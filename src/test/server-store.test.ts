@@ -125,6 +125,40 @@ describe("SiteExpressStore", () => {
     }
   });
 
+  it("publishes compressed inline media accepted by the editor", () => {
+    const store = new SiteExpressStore(":memory:");
+    try {
+      const user = store.register({
+        name: "Editor",
+        email: "media@example.com",
+        password: "media-strong-password",
+      });
+      const project = createSiteProject({ name: "Estúdio", id: "media-site" });
+      project.slug = "estudio-media";
+      project.appearance.heroImage = `data:image/webp;base64,${"a".repeat(180_000)}`;
+      expect(() =>
+        store.saveWorkspace(user.organizationId, 0, {
+          businesses: [],
+          contracts: [],
+          sites: [
+            {
+              id: project.id,
+              title: project.name,
+              slug: project.slug,
+              status: "published",
+              publicData: project,
+            },
+          ],
+        }),
+      ).not.toThrow();
+      expect(store.getPublicSite(project.slug)?.content).toMatchObject({
+        appearance: { heroImage: project.appearance.heroImage },
+      });
+    } finally {
+      store.close();
+    }
+  });
+
   it("expires and revokes sessions", () => {
     const store = new SiteExpressStore(":memory:");
     try {
