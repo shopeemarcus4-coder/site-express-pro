@@ -113,6 +113,10 @@ export function AppPage() {
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placeSelectionRef = useRef(0);
+  const placeSearchRef = useRef(0);
+  const placeSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const placeSearchAbortRef = useRef<AbortController | null>(null);
+  const placeSearchCacheRef = useRef(new Map<string, PlaceSearchResult[]>());
   const createDialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -512,40 +516,98 @@ export function AppPage() {
     }
   }
 
-  async function searchPlaces(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!placeQuery.trim()) return;
+  const runPlacesSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+    const normalized = query.trim();
+    if (normalized.length < 2) return;
+    const requestId = ++placeSearchRef.current;
+    const cacheKey = normalized.toLocaleLowerCase("pt-BR");
+    const cached = placeSearchCacheRef.current.get(cacheKey);
+    if (cached) {
+      setPlaceResults(cached);
+      setPlacesMessage(
+        cached.length
+          ? ""
+          : "Nenhuma empresa encontrada. Você pode preencher os dados manualmente.",
+      );
+      return;
+    }
     setPlacesBusy(true);
     setPlacesMessage("");
-    setPlaceResults([]);
     try {
       const response = await fetch("/api/places/search", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: placeQuery.trim() }),
+        body: JSON.stringify({ query: normalized }),
+        ...(signal ? { signal } : {}),
       });
       const body = await responseBody(response);
+      if (placeSearchRef.current !== requestId) return;
       if (!response.ok)
         throw new Error(
           errorText(body, "Busca externa indisponível. Preencha os dados manualmente."),
         );
-      setPlaceResults(
-        Array.isArray(body["results"]) ? (body["results"] as PlaceSearchResult[]) : [],
-      );
-      if (!Array.isArray(body["results"]) || body["results"].length === 0)
+      const results = Array.isArray(body["results"])
+        ? (body["results"] as PlaceSearchResult[])
+        : [];
+      if (placeSearchCacheRef.current.size >= 20) {
+        const oldest = placeSearchCacheRef.current.keys().next().value;
+        if (oldest) placeSearchCacheRef.current.delete(oldest);
+      }
+      placeSearchCacheRef.current.set(cacheKey, results);
+      setPlaceResults(results);
+      if (results.length === 0)
         setPlacesMessage("Nenhuma empresa encontrada. Você pode preencher os dados manualmente.");
     } catch (reason) {
+      if (
+        placeSearchRef.current !== requestId ||
+        (reason instanceof Error && reason.name === "AbortError")
+      )
+        return;
       setPlacesMessage(
         reason instanceof Error ? reason.message : "Busca indisponível. Preencha manualmente.",
       );
     } finally {
-      setPlacesBusy(false);
+      if (placeSearchRef.current === requestId) setPlacesBusy(false);
     }
+  }, []);
+
+  function searchPlaces(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+    placeSearchAbortRef.current?.abort();
+    void runPlacesSearch(placeQuery);
   }
+
+  function changePlaceQuery(value: string) {
+    setPlaceQuery(value);
+    setPlaceResults([]);
+    setPlacesMessage("");
+  }
+
+  useEffect(() => {
+    if ((mode !== "local" && mode !== "account") || showCreate) return;
+    if (placeQuery.trim().length < 4) {
+      setPlaceResults([]);
+      setPlacesMessage("");
+      return;
+    }
+    const controller = new AbortController();
+    placeSearchAbortRef.current = controller;
+    placeSearchTimerRef.current = setTimeout(() => {
+      void runPlacesSearch(placeQuery, controller.signal);
+    }, 650);
+    return () => {
+      if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
+      controller.abort();
+    };
+  }, [mode, placeQuery, runPlacesSearch, showCreate]);
 
   async function selectPlace(place: PlaceSearchResult) {
     const requestId = ++placeSelectionRef.current;
+    placeSearchRef.current += 1;
+    placeSearchAbortRef.current?.abort();
+    setPlacesBusy(false);
     const template = placeTemplate(place.category);
     setPlacePhotos([]);
     setSelectedPhotoName(null);
@@ -560,6 +622,7 @@ export function AppPage() {
       mapsUrl: "",
     }));
     setPlaceResults([]);
+    setPlaceQuery("");
     setPlacesMessage("Dados encontrados no Google. Confira com a empresa antes de criar.");
     try {
       const response = await fetch("/api/places/details", {
@@ -633,15 +696,15 @@ export function AppPage() {
             <form
               className="sx-app-search-home__form"
               onSubmit={(event) => {
+                event.preventDefault();
                 enterLocal();
-                void searchPlaces(event);
               }}
             >
               <Search size={20} aria-hidden="true" />
               <input
                 aria-label="Buscar empresa no Google"
                 value={placeQuery}
-                onChange={(event) => setPlaceQuery(event.target.value)}
+                onChange={(event) => changePlaceQuery(event.target.value)}
                 placeholder="Nome da empresa e cidade"
                 minLength={2}
                 required
@@ -929,7 +992,7 @@ export function AppPage() {
                 <input
                   aria-label="Nome da empresa e cidade"
                   value={placeQuery}
-                  onChange={(event) => setPlaceQuery(event.target.value)}
+                  onChange={(event) => changePlaceQuery(event.target.value)}
                   placeholder="Nome da empresa e cidade"
                   minLength={2}
                   required
@@ -964,6 +1027,7 @@ export function AppPage() {
                     >
                       <strong>{place.name}</strong>
                       <span>{place.address}</span>
+                      <small>{placeTemplate(place.category).category || "Empresa local"}</small>
                       <ArrowRight size={17} />
                     </button>
                   ))}
@@ -1031,43 +1095,13 @@ export function AppPage() {
                     </button>
                     <div>
                       <span className="sx-app-kicker">NOVO PROJETO</span>
-                      <h3>Fale um pouco sobre o negócio.</h3>
-                      <p>Você pode completar ou mudar tudo no editor.</p>
+                      <h3>
+                        {newSite.mapsUrl
+                          ? "Confira a empresa encontrada."
+                          : "Fale um pouco sobre o negócio."}
+                      </h3>
+                      <p>Confirme o essencial agora. Você pode completar o resto no editor.</p>
                     </div>
-                    {(mode === "account" || mode === "local") && (
-                      <form
-                        className="sx-app-place-search"
-                        onSubmit={(event) => void searchPlaces(event)}
-                      >
-                        <label>
-                          Buscar empresa cadastrada
-                          <input
-                            value={placeQuery}
-                            onChange={(event) => setPlaceQuery(event.target.value)}
-                            placeholder="Nome e cidade"
-                          />
-                        </label>
-                        <button type="submit" className="sx-app-secondary" disabled={placesBusy}>
-                          <Search size={16} />
-                          {placesBusy ? "Buscando…" : "Buscar"}
-                        </button>
-                        {placesMessage && <small>{placesMessage}</small>}
-                        {placeResults.length > 0 && (
-                          <div className="sx-app-place-results">
-                            {placeResults.map((place) => (
-                              <button
-                                key={place.placeId}
-                                type="button"
-                                onClick={() => void selectPlace(place)}
-                              >
-                                <strong>{place.name}</strong>
-                                <span>{place.address}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </form>
-                    )}
                     {placePhotos.length > 0 && (
                       <section
                         className="sx-app-place-photos"
@@ -1159,33 +1193,6 @@ export function AppPage() {
                         />
                       </label>
                       <label>
-                        Telefone comercial (opcional)
-                        <input
-                          type="tel"
-                          value={newSite.phone}
-                          onChange={(event) => editNewSite({ phone: event.target.value })}
-                          placeholder="Não será tratado como WhatsApp"
-                        />
-                      </label>
-                      <label>
-                        Site atual da empresa (opcional)
-                        <input
-                          type="url"
-                          value={newSite.website}
-                          onChange={(event) => editNewSite({ website: event.target.value })}
-                          placeholder="https://exemplo.com.br"
-                        />
-                      </label>
-                      <label>
-                        Link do mapa (opcional)
-                        <input
-                          type="url"
-                          value={newSite.mapsUrl}
-                          onChange={(event) => editNewSite({ mapsUrl: event.target.value })}
-                          placeholder="https://www.google.com/maps/..."
-                        />
-                      </label>
-                      <label>
                         Modelo inicial
                         <select
                           value={newSite.archetype}
@@ -1198,6 +1205,36 @@ export function AppPage() {
                           <option value="produtos">Produtos</option>
                         </select>
                       </label>
+                      <details className="sx-app-create__advanced">
+                        <summary>Telefone, site e mapa (opcionais)</summary>
+                        <label>
+                          Telefone comercial
+                          <input
+                            type="tel"
+                            value={newSite.phone}
+                            onChange={(event) => editNewSite({ phone: event.target.value })}
+                            placeholder="Não será tratado como WhatsApp"
+                          />
+                        </label>
+                        <label>
+                          Site atual da empresa
+                          <input
+                            type="url"
+                            value={newSite.website}
+                            onChange={(event) => editNewSite({ website: event.target.value })}
+                            placeholder="https://exemplo.com.br"
+                          />
+                        </label>
+                        <label>
+                          Link do mapa
+                          <input
+                            type="url"
+                            value={newSite.mapsUrl}
+                            onChange={(event) => editNewSite({ mapsUrl: event.target.value })}
+                            placeholder="https://www.google.com/maps/..."
+                          />
+                        </label>
+                      </details>
                       <div className="sx-app-create__actions">
                         <button
                           type="button"
