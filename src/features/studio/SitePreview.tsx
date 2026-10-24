@@ -1,9 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
   ExternalLink,
   MapPin,
+  Menu,
   MessageCircle,
   Play,
   Plus,
@@ -146,6 +147,7 @@ export function SitePreview({
 }: SitePreviewProps) {
   const { business, appearance, content, sections } = project;
   const heroImage = safeImageSrc(appearance.heroImage);
+  const galleryDialogRef = useRef<HTMLDialogElement>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const categories = [
     ...new Set(
@@ -236,6 +238,26 @@ export function SitePreview({
             </a>
           ))}
         </nav>
+        {navItems.length > 0 && (
+          <details className="sx-site-mobile-menu">
+            <summary aria-label="Abrir menu de navegação">
+              <Menu size={20} aria-hidden="true" /> Menu
+            </summary>
+            <nav aria-label="Navegação no celular">
+              {navItems.map((item) => (
+                <a
+                  href={item.href}
+                  key={item.href}
+                  onClick={(event) =>
+                    event.currentTarget.closest("details")?.removeAttribute("open")
+                  }
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          </details>
+        )}
         <ActionLink project={project} editable={editable} className="sx-site-header-cta">
           {hasContact ? "Fale conosco" : "Contato"}
           <ArrowRight size={16} aria-hidden="true" />
@@ -421,17 +443,53 @@ export function SitePreview({
                 {text("galleryTitle", content.galleryTitle, "h2")}
                 {project.gallery.length ? (
                   <div className="sx-site-gallery-grid">
-                    {project.gallery.map((image, index) => (
-                      <img
-                        key={`${image.slice(0, 40)}-${index}`}
-                        src={image}
-                        alt={`Imagem ${index + 1} de ${business.name}`}
-                        loading="lazy"
-                      />
-                    ))}
+                    {project.gallery.map((image, index) => {
+                      const src = safeImageSrc(image);
+                      return src ? (
+                        <button
+                          type="button"
+                          key={`${image.slice(0, 40)}-${index}`}
+                          className="sx-site-gallery-photo"
+                          data-sx-gallery
+                          aria-label={`Ampliar foto ${index + 1} de ${business.name}`}
+                          onClick={() => {
+                            const dialog = galleryDialogRef.current;
+                            const img = dialog?.querySelector("img");
+                            if (!dialog || !img) return;
+                            img.src = src;
+                            img.alt = `Foto ${index + 1} de ${business.name}`;
+                            dialog.showModal();
+                          }}
+                        >
+                          <img
+                            src={src}
+                            alt={`Foto ${index + 1} de ${business.name}`}
+                            loading="lazy"
+                          />
+                        </button>
+                      ) : null;
+                    })}
                   </div>
                 ) : (
                   editable && <p className="sx-site-empty">Adicione fotos reais na aba Mídia.</p>
+                )}
+                {project.gallery.length > 0 && (
+                  <dialog
+                    ref={galleryDialogRef}
+                    className="sx-site-gallery-dialog"
+                    onClick={(event) => {
+                      if (event.target === event.currentTarget) event.currentTarget.close();
+                    }}
+                  >
+                    <button
+                      type="button"
+                      data-sx-gallery-close
+                      onClick={() => galleryDialogRef.current?.close()}
+                    >
+                      Fechar foto
+                    </button>
+                    <img alt="" />
+                  </dialog>
                 )}
               </section>
             );

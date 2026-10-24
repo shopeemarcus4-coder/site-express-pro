@@ -703,19 +703,58 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sx-site-header nav {
+.sx-site-header > nav {
   display: flex;
   gap: clamp(12px, 2vw, 30px);
   margin-left: auto;
 }
-.sx-site-header nav a {
+.sx-site-header > nav a {
   font-size: 12px;
   font-weight: 600;
   opacity: 0.72;
   transition: opacity 0.2s;
 }
-.sx-site-header nav a:hover {
+.sx-site-header > nav a:hover {
   opacity: 1;
+}
+.sx-site-mobile-menu {
+  display: none;
+  position: relative;
+  margin-left: auto;
+}
+.sx-site-mobile-menu summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sx-site-mobile-menu summary::-webkit-details-marker {
+  display: none;
+}
+.sx-site-mobile-menu nav {
+  position: absolute;
+  top: calc(100% + 20px);
+  right: -20px;
+  z-index: 20;
+  display: grid;
+  min-width: 190px;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--sx-c-surface);
+  box-shadow: 0 18px 35px #0003;
+  color: var(--sx-c-ink);
+}
+.sx-site-mobile-menu nav a {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.sx-site-mobile-menu nav a:hover,
+.sx-site-mobile-menu nav a:focus-visible {
+  background: var(--sx-c-soft);
 }
 .sx-site-header-cta {
   display: flex;
@@ -1036,15 +1075,66 @@
   gap: 12px;
   margin-top: 34px;
 }
-.sx-site-gallery-grid img {
+.sx-site-gallery-photo {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--sx-c-surface);
+  cursor: zoom-in;
+}
+.sx-site-gallery-photo img {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 12px;
+  transition: transform 0.4s ease;
 }
-.sx-site[data-archetype="gastronomia"] .sx-site-gallery-grid:has(img:nth-child(3)) img:first-child {
+.sx-site-gallery-photo:hover img {
+  transform: scale(1.04);
+}
+.sx-site-gallery-photo:focus-visible {
+  outline: 3px solid var(--sx-c-secondary);
+  outline-offset: 3px;
+}
+.sx-site-gallery-dialog {
+  max-width: min(920px, 92vw);
+  max-height: 92vh;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sx-c-surface);
+}
+.sx-site-gallery-dialog::backdrop {
+  background: #050c09df;
+}
+.sx-site-gallery-dialog button {
+  display: block;
+  margin: 0 0 10px auto;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--sx-c-primary);
+  color: #fff;
+  cursor: pointer;
+}
+.sx-site-gallery-dialog img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 68px);
+  object-fit: contain;
+}
+.sx-site[data-archetype="gastronomia"]
+  .sx-site-gallery-grid:has(.sx-site-gallery-photo:nth-child(3))
+  .sx-site-gallery-photo:first-child {
   grid-column: span 2;
   grid-row: span 2;
+}
+.sx-site[data-archetype="gastronomia"]
+  .sx-site-gallery-grid:has(.sx-site-gallery-photo:nth-child(3))
+  .sx-site-gallery-photo:first-child
+  img {
   height: 100%;
   aspect-ratio: auto;
 }
@@ -1390,8 +1480,11 @@
     padding: 0 25px;
     min-height: 70px;
   }
-  .sx-site-header nav {
+  .sx-site-header > nav {
     display: none;
+  }
+  .sx-site-mobile-menu {
+    display: block;
   }
   .sx-site-hero {
     min-height: 0;

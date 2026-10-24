@@ -81,6 +81,41 @@ describe("studio site generation", () => {
     dom.window.close();
   });
 
+  it("opens and closes gallery photos in exported HTML", () => {
+    const project = createSiteProject({ name: "Ateliê" });
+    project.gallery = ["https://example.com/photo.jpg"];
+    project.sections.find((section) => section.id === "gallery")!.enabled = true;
+    const dom = new JSDOM(buildStandaloneHtml(project), {
+      runScripts: "dangerously",
+      beforeParse(window) {
+        window.HTMLDialogElement.prototype.showModal = function () {
+          this.open = true;
+        };
+        window.HTMLDialogElement.prototype.close = function () {
+          this.open = false;
+        };
+      },
+    });
+    const photo = dom.window.document.querySelector<HTMLButtonElement>("[data-sx-gallery]")!;
+    const dialog = dom.window.document.querySelector<HTMLDialogElement>(".sx-site-gallery-dialog")!;
+    photo.click();
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector("img")?.src).toBe("https://example.com/photo.jpg");
+    dialog.querySelector<HTMLButtonElement>("[data-sx-gallery-close]")!.click();
+    expect(dialog.open).toBe(false);
+    dom.window.close();
+  });
+
+  it("closes the mobile menu after navigating in exported HTML", () => {
+    const project = createSiteProject({ name: "Ateliê" });
+    const dom = new JSDOM(buildStandaloneHtml(project), { runScripts: "dangerously" });
+    const menu = dom.window.document.querySelector<HTMLDetailsElement>(".sx-site-mobile-menu")!;
+    menu.open = true;
+    menu.querySelector<HTMLAnchorElement>("nav a")!.click();
+    expect(menu.open).toBe(false);
+    dom.window.close();
+  });
+
   it("rejects unsafe image schemes", () => {
     expect(safeImageSrc("javascript:alert(1)")).toBeNull();
     expect(safeImageSrc("data:image/svg+xml;base64,PHN2Zz4=")).toBeNull();
