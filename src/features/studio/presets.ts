@@ -221,6 +221,13 @@ export function createSiteProject(input: BusinessInput): SiteProject {
       heroLayout:
         archetype === "gastronomia" ? "immersive" : archetype === "servicos" ? "split" : "showcase",
       heroImage: input.heroImage ?? "",
+      heroImageMobile: "",
+      aboutImage: "",
+      aboutImageMobile: "",
+      heroImageIllustrative: false,
+      heroImageMobileIllustrative: false,
+      aboutImageIllustrative: false,
+      aboutImageMobileIllustrative: false,
       heroImageAlt: input.heroImageAlt ?? "",
       heroPosition: "50% 50%",
     },
@@ -253,6 +260,7 @@ export function createSiteProject(input: BusinessInput): SiteProject {
     })),
     items: [],
     gallery: [],
+    galleryIllustrative: [],
     reviews: [],
     faqs: [],
   };

@@ -52,6 +52,22 @@ class FakeD1 implements D1Database {
 }
 
 describe("Cloudflare D1 store", () => {
+  it("limits image API calls in D1 independently for each day", async () => {
+    const db = new FakeD1();
+    const store = new D1SiteExpressStore(db);
+    try {
+      const user = await store.register({
+        name: "Ana",
+        email: "ana@quota.test",
+        password: "safe-password",
+      });
+      expect(await store.consumeImageQuota(user.organizationId, "2026-10-24", 1)).toBe(true);
+      expect(await store.consumeImageQuota(user.organizationId, "2026-10-24", 1)).toBe(false);
+      expect(await store.consumeImageQuota(user.organizationId, "2026-10-25", 1)).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
   it("selects D1 from the request and fails clearly without a binding", () => {
     const request = new Request("https://example.test") as Request & { runtime?: unknown };
     request.runtime = { name: "cloudflare", cloudflare: { env: {} } };

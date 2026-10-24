@@ -39,6 +39,36 @@ describe("studio site generation", () => {
     expect(published.marketing).toEqual(project.marketing);
   });
 
+  it("uses mobile compositions in the editor and labels illustrative images in the export", () => {
+    const project = createSiteProject({ name: "Ateliê" });
+    project.appearance.heroImage = "https://example.test/desktop.jpg";
+    project.appearance.heroImageMobile = "https://example.test/mobile.jpg";
+    project.appearance.heroImageMobileIllustrative = true;
+    project.appearance.aboutImage = "https://example.test/about.jpg";
+    project.gallery = ["https://example.test/gallery.jpg"];
+    project.galleryIllustrative = [true];
+    project.sections.find((section) => section.id === "gallery")!.enabled = true;
+    const mobilePreview = new JSDOM(
+      renderToStaticMarkup(<SitePreview project={project} editable previewViewport="mobile" />),
+    );
+    expect(
+      mobilePreview.window.document.querySelector(".sx-site-hero-picture img")?.getAttribute("src"),
+    ).toBe("https://example.test/mobile.jpg");
+    mobilePreview.window.close();
+    const exported = new JSDOM(buildStandaloneHtml(project));
+    const document = exported.window.document;
+    expect(document.querySelector(".sx-site-hero-picture source")?.getAttribute("srcset")).toBe(
+      "https://example.test/mobile.jpg",
+    );
+    expect(document.querySelector(".sx-site-about-picture img")?.getAttribute("src")).toBe(
+      "https://example.test/about.jpg",
+    );
+    expect(
+      document.querySelector(".sx-site-gallery-photo .sx-site-image-disclosure")?.textContent,
+    ).toBe("Imagem ilustrativa");
+    exported.window.close();
+  });
+
   it("uses a confirmed address for a map and truthful export metadata", () => {
     const project = createSiteProject({
       name: "Clínica Exemplo",

@@ -134,6 +134,7 @@ export class D1SiteExpressStore {
         CREATE TABLE IF NOT EXISTS workspaces (organization_id TEXT PRIMARY KEY, version INTEGER NOT NULL, body TEXT NOT NULL, updated_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS public_sites (slug TEXT PRIMARY KEY, organization_id TEXT NOT NULL, body TEXT NOT NULL, updated_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_write_guard (organization_id TEXT PRIMARY KEY, valid INTEGER NOT NULL CHECK(valid = 1));
+        CREATE TABLE IF NOT EXISTS image_usage (organization_id TEXT NOT NULL, day TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (organization_id, day));
       `,
         )
         .then(() => undefined)
@@ -144,6 +145,21 @@ export class D1SiteExpressStore {
       initialized.set(this.db, pending);
     }
     await pending;
+  }
+
+  async consumeImageQuota(organizationId: string, day: string, limit: number): Promise<boolean> {
+    await this.ready();
+    const result = await this.db
+      .prepare(
+        `
+      INSERT INTO image_usage (organization_id, day, calls) VALUES (?, ?, 1)
+      ON CONFLICT (organization_id, day) DO UPDATE SET calls = calls + 1
+      WHERE calls < ?
+    `,
+      )
+      .bind(organizationId, day, limit)
+      .run();
+    return result.success && (result.meta?.changes ?? 0) > 0;
   }
 
   async register(input: {

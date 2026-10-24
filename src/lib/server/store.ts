@@ -120,11 +120,29 @@ export class SiteExpressStore {
         slug TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         body TEXT NOT NULL, updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS image_usage (
+        organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        day TEXT NOT NULL, calls INTEGER NOT NULL,
+        PRIMARY KEY (organization_id, day)
+      );
     `);
   }
 
   close(): void {
     this.db.close();
+  }
+
+  consumeImageQuota(organizationId: string, day: string, limit: number): boolean {
+    const result = this.db
+      .prepare(
+        `
+      INSERT INTO image_usage (organization_id, day, calls) VALUES (?, ?, 1)
+      ON CONFLICT (organization_id, day) DO UPDATE SET calls = calls + 1
+      WHERE calls < ?
+    `,
+      )
+      .run(organizationId, day, limit);
+    return result.changes > 0;
   }
 
   register(input: {

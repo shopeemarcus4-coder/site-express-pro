@@ -1,13 +1,13 @@
 /** Creates a standards-compliant ZIP using STORE. The exported site is already small
  * and self-contained, so avoiding a compression dependency keeps delivery reliable. */
-export function createZip(files: { name: string; content: string }[]): Uint8Array {
+export function createZip(files: { name: string; content: string | Uint8Array }[]): Uint8Array {
   const encoder = new TextEncoder();
   const entries = files.map(({ name, content }) => {
     if (!name || name.includes("/") || name.includes("\\") || name === "." || name === "..") {
       throw new Error("Nome de arquivo inválido no pacote ZIP.");
     }
     const nameBytes = encoder.encode(name);
-    const body = encoder.encode(content);
+    const body = typeof content === "string" ? encoder.encode(content) : content;
     if (nameBytes.length > 0xffff || body.length > 0xffffffff) {
       throw new Error("Arquivo grande demais para o pacote ZIP.");
     }

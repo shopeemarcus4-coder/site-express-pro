@@ -3,6 +3,22 @@ import { SiteExpressStore, StoreError } from "../lib/server/store";
 import { createSiteProject } from "../features/studio/presets";
 
 describe("SiteExpressStore", () => {
+  it("limits image API calls per organization and UTC day", () => {
+    const store = new SiteExpressStore(":memory:");
+    try {
+      const user = store.register({
+        name: "Ana",
+        email: "ana@quota.test",
+        password: "safe-password",
+      });
+      expect(store.consumeImageQuota(user.organizationId, "2026-10-24", 2)).toBe(true);
+      expect(store.consumeImageQuota(user.organizationId, "2026-10-24", 2)).toBe(true);
+      expect(store.consumeImageQuota(user.organizationId, "2026-10-24", 2)).toBe(false);
+      expect(store.consumeImageQuota(user.organizationId, "2026-10-25", 2)).toBe(true);
+    } finally {
+      store.close();
+    }
+  });
   it("isolates tenants and rejects stale writes", () => {
     const store = new SiteExpressStore(":memory:");
     try {

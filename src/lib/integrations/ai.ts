@@ -18,7 +18,8 @@ export class AiError extends Error {
       | "quota_exceeded"
       | "unavailable"
       | "blocked"
-      | "bad_response",
+      | "bad_response"
+      | "invalid_request",
     public readonly status: number,
   ) {
     super(code);

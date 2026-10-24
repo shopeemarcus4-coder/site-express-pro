@@ -17,6 +17,7 @@ export type EditableField = keyof SiteProject["content"] | "business.name" | "bu
 interface SitePreviewProps {
   project: SiteProject;
   editable?: boolean;
+  previewViewport?: "desktop" | "tablet" | "mobile";
   selectedField?: EditableField | null;
   onSelectField?: (field: EditableField) => void;
   onEditField?: (field: EditableField, value: string) => void;
@@ -144,9 +145,29 @@ export function SitePreview({
   onSelectField,
   onEditField,
   onSelectImage,
+  previewViewport,
 }: SitePreviewProps) {
   const { business, appearance, content, sections } = project;
   const heroImage = safeImageSrc(appearance.heroImage);
+  const heroImageMobile = safeImageSrc(appearance.heroImageMobile || "");
+  const aboutImage = safeImageSrc(appearance.aboutImage || "");
+  const aboutImageMobile = safeImageSrc(appearance.aboutImageMobile || "");
+  const previewHeroImage =
+    previewViewport === "mobile" ? heroImageMobile || heroImage : heroImage || heroImageMobile;
+  const previewAboutImage =
+    previewViewport === "mobile" ? aboutImageMobile || aboutImage : aboutImage || aboutImageMobile;
+  const desktopHeroIllustrative = heroImage
+    ? appearance.heroImageIllustrative
+    : appearance.heroImageMobileIllustrative;
+  const mobileHeroIllustrative = heroImageMobile
+    ? appearance.heroImageMobileIllustrative
+    : appearance.heroImageIllustrative;
+  const desktopAboutIllustrative = aboutImage
+    ? appearance.aboutImageIllustrative
+    : appearance.aboutImageMobileIllustrative;
+  const mobileAboutIllustrative = aboutImageMobile
+    ? appearance.aboutImageMobileIllustrative
+    : appearance.aboutImageIllustrative;
   const galleryDialogRef = useRef<HTMLDialogElement>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const categories = [
@@ -217,7 +238,7 @@ export function SitePreview({
       data-archetype={project.archetype}
       data-hero-layout={appearance.heroLayout}
       data-heading-font={appearance.headingFont}
-      data-hero-photo={heroImage ? "true" : "false"}
+      data-hero-photo={heroImage || heroImageMobile ? "true" : "false"}
       style={themeStyle}
     >
       <header className="sx-site-header">
@@ -297,13 +318,44 @@ export function SitePreview({
               </p>
             )}
           </div>
-          <div className={`sx-site-hero-visual ${heroImage ? "sx-site-hero-visual--photo" : ""}`}>
-            {heroImage ? (
-              <img
-                src={heroImage}
-                alt={appearance.heroImageAlt || ""}
-                style={{ objectPosition: appearance.heroPosition }}
-              />
+          <div
+            className={`sx-site-hero-visual ${heroImage || heroImageMobile ? "sx-site-hero-visual--photo" : ""}`}
+          >
+            {heroImage || heroImageMobile ? (
+              <>
+                <picture className="sx-site-hero-picture">
+                  {!previewViewport && heroImageMobile && (
+                    <source media="(max-width: 760px)" srcSet={heroImageMobile} />
+                  )}
+                  <img
+                    src={
+                      previewViewport ? previewHeroImage || "" : heroImage || heroImageMobile || ""
+                    }
+                    alt={appearance.heroImageAlt || ""}
+                    style={{ objectPosition: appearance.heroPosition }}
+                  />
+                </picture>
+                {previewViewport ? (
+                  (previewViewport === "mobile"
+                    ? mobileHeroIllustrative
+                    : desktopHeroIllustrative) && (
+                    <span className="sx-site-image-disclosure">Imagem ilustrativa</span>
+                  )
+                ) : (
+                  <>
+                    {desktopHeroIllustrative && (
+                      <span className="sx-site-image-disclosure sx-site-image-disclosure--desktop">
+                        Imagem ilustrativa
+                      </span>
+                    )}
+                    {mobileHeroIllustrative && (
+                      <span className="sx-site-image-disclosure sx-site-image-disclosure--mobile">
+                        Imagem ilustrativa
+                      </span>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
               <div className="sx-site-hero-visual-placeholder" aria-hidden="true">
                 <span>{business.name.slice(0, 1).toUpperCase()}</span>
@@ -409,13 +461,15 @@ export function SitePreview({
             );
           }
           if (section.id === "about") {
-            if (!editable && !content.aboutBody) return null;
+            if (!editable && !content.aboutBody && !aboutImage && !aboutImageMobile) return null;
             return (
               <section
                 key={section.id}
                 id="sobre"
                 className="sx-site-section sx-site-about"
-                data-export-omit={!content.aboutBody ? "true" : undefined}
+                data-export-omit={
+                  !content.aboutBody && !aboutImage && !aboutImageMobile ? "true" : undefined
+                }
               >
                 <div className="sx-site-about-heading">
                   <span>O que nos move</span>
@@ -427,6 +481,44 @@ export function SitePreview({
                   "p",
                   "sx-site-about-copy",
                   "Conte aqui a história deste negócio.",
+                )}
+                {(aboutImage || aboutImageMobile) && (
+                  <div className="sx-site-about-picture">
+                    <picture>
+                      {!previewViewport && aboutImageMobile && (
+                        <source media="(max-width: 760px)" srcSet={aboutImageMobile} />
+                      )}
+                      <img
+                        src={
+                          previewViewport
+                            ? previewAboutImage || ""
+                            : aboutImage || aboutImageMobile || ""
+                        }
+                        alt={`Sobre ${business.name}`}
+                        loading="lazy"
+                      />
+                    </picture>
+                    {previewViewport ? (
+                      (previewViewport === "mobile"
+                        ? mobileAboutIllustrative
+                        : desktopAboutIllustrative) && (
+                        <span className="sx-site-image-disclosure">Imagem ilustrativa</span>
+                      )
+                    ) : (
+                      <>
+                        {desktopAboutIllustrative && (
+                          <span className="sx-site-image-disclosure sx-site-image-disclosure--desktop">
+                            Imagem ilustrativa
+                          </span>
+                        )}
+                        {mobileAboutIllustrative && (
+                          <span className="sx-site-image-disclosure sx-site-image-disclosure--mobile">
+                            Imagem ilustrativa
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 )}
               </section>
             );
@@ -466,6 +558,9 @@ export function SitePreview({
                             alt={`Foto ${index + 1} de ${business.name}`}
                             loading="lazy"
                           />
+                          {project.galleryIllustrative?.[index] && (
+                            <span className="sx-site-image-disclosure">Imagem ilustrativa</span>
+                          )}
                         </button>
                       ) : null;
                     })}

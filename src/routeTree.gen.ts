@@ -17,6 +17,7 @@ import { Route as ModelosRouteImport } from './routes/modelos'
 import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
 import { Route as SiteSlugRouteImport } from './routes/site/$slug'
+import { Route as ApiAiImageRouteImport } from './routes/api/ai/image'
 import { Route as ApiAiRewriteRouteImport } from './routes/api/ai/rewrite'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
@@ -64,6 +65,11 @@ const ApiWorkspaceRoute = ApiWorkspaceRouteImport.update({
 const SiteSlugRoute = SiteSlugRouteImport.update({
   id: '/site/$slug',
   path: '/site/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiImageRoute = ApiAiImageRouteImport.update({
+  id: '/api/ai/image',
+  path: '/api/ai/image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAiRewriteRoute = ApiAiRewriteRouteImport.update({
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/image': typeof ApiAiImageRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/image': typeof ApiAiImageRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
+  '/api/ai/image': typeof ApiAiImageRoute
   '/api/ai/rewrite': typeof ApiAiRewriteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/api/workspace'
     | '/site/$slug'
+    | '/api/ai/image'
     | '/api/ai/rewrite'
     | '/api/auth/login'
     | '/api/auth/register'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/api/workspace'
     | '/site/$slug'
+    | '/api/ai/image'
     | '/api/ai/rewrite'
     | '/api/auth/login'
     | '/api/auth/register'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/api/workspace'
     | '/site/$slug'
+    | '/api/ai/image'
     | '/api/ai/rewrite'
     | '/api/auth/login'
     | '/api/auth/register'
@@ -228,6 +240,7 @@ export interface RootRouteChildren {
   PrecosRoute: typeof PrecosRoute
   ApiWorkspaceRoute: typeof ApiWorkspaceRoute
   SiteSlugRoute: typeof SiteSlugRoute
+  ApiAiImageRoute: typeof ApiAiImageRoute
   ApiAiRewriteRoute: typeof ApiAiRewriteRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       path: '/site/$slug'
       fullPath: '/site/$slug'
       preLoaderRoute: typeof SiteSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/image': {
+      id: '/api/ai/image'
+      path: '/api/ai/image'
+      fullPath: '/api/ai/image'
+      preLoaderRoute: typeof ApiAiImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ai/rewrite': {
@@ -364,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrecosRoute: PrecosRoute,
   ApiWorkspaceRoute: ApiWorkspaceRoute,
   SiteSlugRoute: SiteSlugRoute,
+  ApiAiImageRoute: ApiAiImageRoute,
   ApiAiRewriteRoute: ApiAiRewriteRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,

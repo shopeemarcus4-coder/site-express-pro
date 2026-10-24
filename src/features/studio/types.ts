@@ -64,6 +64,13 @@ export interface SiteProject {
     headingFont: "editorial" | "modern" | "classic";
     heroLayout: "immersive" | "split" | "showcase";
     heroImage: string;
+    heroImageMobile?: string | undefined;
+    aboutImage?: string | undefined;
+    aboutImageMobile?: string | undefined;
+    heroImageIllustrative?: boolean | undefined;
+    heroImageMobileIllustrative?: boolean | undefined;
+    aboutImageIllustrative?: boolean | undefined;
+    aboutImageMobileIllustrative?: boolean | undefined;
     heroImageAlt: string;
     heroPosition: string;
   };
@@ -93,6 +100,7 @@ export interface SiteProject {
   sections: SiteSection[];
   items: SiteItem[];
   gallery: string[];
+  galleryIllustrative?: boolean[] | undefined;
   reviews: SiteReview[];
   faqs: SiteFaq[];
 }

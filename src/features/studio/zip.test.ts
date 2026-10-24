@@ -35,4 +35,11 @@ describe("site ZIP export", () => {
   it("rejects paths that could escape the extracted folder", () => {
     expect(() => createZip([{ name: "../outside", content: "x" }])).toThrow();
   });
+
+  it("stores image bytes unchanged alongside text files", () => {
+    const image = Uint8Array.from([0, 255, 44, 10]);
+    const archive = createZip([{ name: "capa-desktop.webp", content: image }]);
+    const nameLength = new DataView(archive.buffer).getUint16(26, true);
+    expect(archive.subarray(30 + nameLength, 30 + nameLength + image.length)).toEqual(image);
+  });
 });

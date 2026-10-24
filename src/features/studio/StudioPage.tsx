@@ -29,7 +29,9 @@ import { PALETTES, SECTION_LABELS } from "./presets";
 import { SitePreview, type EditableField } from "./SitePreview";
 import { buildStandaloneHtml } from "./exportHtml";
 import { safeImageSrc } from "./media";
+import { imageSlots, type ImageSlot } from "../../lib/integrations/image-prompt";
 import { createZip } from "./zip";
+import { imageAssets, imageChecklist } from "./imageAssets";
 import type {
   SiteArchetype,
   SiteFaq,
@@ -163,6 +165,59 @@ function archetypeIcon(archetype: SiteArchetype) {
   return <BriefcaseBusiness size={17} />;
 }
 
+function projectImageForSlot(project: SiteProject, slot: ImageSlot, index: number): string {
+  if (slot === "heroDesktop") return project.appearance.heroImage;
+  if (slot === "heroMobile") return project.appearance.heroImageMobile || "";
+  if (slot === "aboutDesktop") return project.appearance.aboutImage || "";
+  if (slot === "aboutMobile") return project.appearance.aboutImageMobile || "";
+  return project.gallery[index] || "";
+}
+
+function withProjectImage(
+  project: SiteProject,
+  slot: ImageSlot,
+  image: string,
+  mode: "enhance" | "generate" | "remove",
+  index: number,
+): SiteProject {
+  if (slot === "gallery") {
+    const flags = project.gallery.map(
+      (_, itemIndex) => project.galleryIllustrative?.[itemIndex] ?? false,
+    );
+    return {
+      ...project,
+      gallery:
+        mode === "generate"
+          ? [...project.gallery, image]
+          : project.gallery.map((item, itemIndex) => (itemIndex === index ? image : item)),
+      galleryIllustrative: mode === "generate" ? [...flags, true] : flags,
+    };
+  }
+  const fields = {
+    heroDesktop: ["heroImage", "heroImageIllustrative"],
+    heroMobile: ["heroImageMobile", "heroImageMobileIllustrative"],
+    aboutDesktop: ["aboutImage", "aboutImageIllustrative"],
+    aboutMobile: ["aboutImageMobile", "aboutImageMobileIllustrative"],
+  } as const;
+  const [imageField, flagField] = fields[slot];
+  return {
+    ...project,
+    appearance: {
+      ...project.appearance,
+      [imageField]: image,
+      [flagField]:
+        mode === "generate"
+          ? true
+          : mode === "remove"
+            ? false
+            : Boolean(project.appearance[flagField]),
+      ...(slot === "heroDesktop" && !project.appearance.heroImageAlt
+        ? { heroImageAlt: `Imagem de ${project.business.name}` }
+        : {}),
+    },
+  };
+}
+
 export function StudioPage({
   project,
   onChange,
@@ -182,6 +237,18 @@ export function StudioPage({
   const [toast, setToast] = useState("");
   const [historyVersion, setHistoryVersion] = useState(0);
   const [rewritingField, setRewritingField] = useState<"heroSubtitle" | "aboutBody" | null>(null);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [imageTarget, setImageTarget] = useState<ImageSlot>("heroDesktop");
+  const [imageIndex, setImageIndex] = useState(0);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageProposal, setImageProposal] = useState<{
+    image: string;
+    mode: "enhance" | "generate";
+    target: ImageSlot;
+    index: number;
+    projectId: string;
+    original: string;
+  } | null>(null);
   const projectRef = useRef(project);
   projectRef.current = project;
   const past = useRef<SiteProject[]>([]);
@@ -317,7 +384,7 @@ export function StudioPage({
     });
   const upload = async (
     event: ChangeEvent<HTMLInputElement>,
-    destination: "hero" | "gallery" | "logo",
+    destination: "hero" | "heroMobile" | "about" | "aboutMobile" | "gallery" | "logo",
   ) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -339,10 +406,25 @@ export function StudioPage({
       if (destination === "hero")
         editAppearance({
           heroImage: image,
+          heroImageIllustrative: false,
           heroImageAlt: project.appearance.heroImageAlt || `Imagem de ${project.business.name}`,
         });
+      if (destination === "heroMobile")
+        editAppearance({ heroImageMobile: image, heroImageMobileIllustrative: false });
+      if (destination === "about")
+        editAppearance({ aboutImage: image, aboutImageIllustrative: false });
+      if (destination === "aboutMobile")
+        editAppearance({ aboutImageMobile: image, aboutImageMobileIllustrative: false });
       if (destination === "logo") editBusiness("logoUrl", image);
-      if (destination === "gallery") commit({ ...project, gallery: [...project.gallery, image] });
+      if (destination === "gallery")
+        commit({
+          ...project,
+          gallery: [...project.gallery, image],
+          galleryIllustrative: [
+            ...project.gallery.map((_, index) => project.galleryIllustrative?.[index] ?? false),
+            false,
+          ],
+        });
       announce("Imagem otimizada e adicionada ao projeto.");
     } catch (error) {
       announce(error instanceof Error ? error.message : "Não foi possível usar esta imagem.");
@@ -363,6 +445,134 @@ export function StudioPage({
       announce(error instanceof Error ? error.message : "Não foi possível usar esta imagem.");
     }
   };
+  const requestImage = async (mode: "enhance" | "generate") => {
+    const sourceProject = projectRef.current;
+    const original = projectImageForSlot(sourceProject, imageTarget, imageIndex);
+    const responsiveReference =
+      mode === "generate" && imageTarget === "heroMobile"
+        ? sourceProject.appearance.heroImage
+        : mode === "generate" && imageTarget === "aboutMobile"
+          ? sourceProject.appearance.aboutImage
+          : "";
+    if (imagePrompt.trim().length < 10) {
+      announce("Descreva a imagem desejada em pelo menos dez caracteres.");
+      return;
+    }
+    if (mode === "enhance" && !original) {
+      announce("Envie uma foto autorizada antes de pedir uma melhoria.");
+      return;
+    }
+    if (mode === "generate" && imageTarget === "gallery" && sourceProject.gallery.length >= 8) {
+      announce("A galeria já tem oito imagens. Remova uma antes de gerar outra.");
+      return;
+    }
+    setImageBusy(true);
+    setImageProposal(null);
+    try {
+      const response = await fetch("/api/ai/image", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          slot: imageTarget,
+          prompt: imagePrompt.trim(),
+          business: {
+            name: sourceProject.business.name,
+            category: sourceProject.business.category,
+            city: sourceProject.business.city,
+            colors: [
+              sourceProject.appearance.palette.primary,
+              sourceProject.appearance.palette.secondary,
+              sourceProject.appearance.palette.accent,
+            ],
+          },
+          ...(mode === "enhance" ? { sourceImage: original } : {}),
+          ...(responsiveReference ? { referenceImage: responsiveReference } : {}),
+        }),
+      });
+      const body = (await response.json()) as { image?: unknown; error?: unknown };
+      if (!response.ok || typeof body.image !== "string")
+        throw new Error(
+          typeof body.error === "string" ? body.error : "O Gemini não retornou uma imagem.",
+        );
+      if (!/^data:image\/(jpeg|png|webp);base64,/.test(body.image))
+        throw new Error("O Gemini retornou um formato de imagem não aceito.");
+      setImageProposal({
+        image: body.image,
+        mode,
+        target: imageTarget,
+        index: imageIndex,
+        projectId: sourceProject.id,
+        original,
+      });
+      announce("Prévia pronta. Confira a imagem antes de aplicá-la.");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "Não foi possível criar a imagem.");
+    } finally {
+      setImageBusy(false);
+    }
+  };
+  const acceptImage = async () => {
+    const proposal = imageProposal;
+    if (!proposal) return;
+    const current = projectRef.current;
+    const currentOriginal = projectImageForSlot(current, proposal.target, proposal.index);
+    if (current.id !== proposal.projectId || currentOriginal !== proposal.original) {
+      setImageProposal(null);
+      announce(
+        "A foto original mudou. Gere uma nova prévia para evitar substituir a imagem errada.",
+      );
+      return;
+    }
+    if (
+      proposal.mode === "generate" &&
+      proposal.target === "gallery" &&
+      current.gallery.length >= 8
+    ) {
+      announce("A galeria já tem oito imagens. Remova uma antes de aplicar a prévia.");
+      return;
+    }
+    setImageBusy(true);
+    try {
+      const blob = await (await fetch(proposal.image)).blob();
+      const image = await optimizeImage(new File([blob], "gemini.png", { type: blob.type }), 1600);
+      const latest = projectRef.current;
+      if (
+        latest.id !== proposal.projectId ||
+        projectImageForSlot(latest, proposal.target, proposal.index) !== proposal.original ||
+        (proposal.mode === "generate" &&
+          proposal.target === "gallery" &&
+          latest.gallery.length >= 8)
+      ) {
+        setImageProposal(null);
+        announce("O projeto mudou. Gere uma nova prévia antes de aplicar esta imagem.");
+        return;
+      }
+      commit(withProjectImage(latest, proposal.target, image, proposal.mode, proposal.index));
+      setImageProposal(null);
+      announce("Imagem aplicada ao projeto. Revise antes de publicar.");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "Não foi possível aplicar a imagem.");
+    } finally {
+      setImageBusy(false);
+    }
+  };
+  const downloadProposedImage = async () => {
+    if (!imageProposal) return;
+    try {
+      const blob = await (await fetch(imageProposal.image)).blob();
+      const extension =
+        blob.type === "image/jpeg" ? "jpg" : blob.type === "image/webp" ? "webp" : "png";
+      const name =
+        imageProposal.target === "gallery"
+          ? `galeria-${project.gallery.length + 1}.${extension}`
+          : imageSlots[imageProposal.target].filename.replace(/\.webp$/, `.${extension}`);
+      downloadBlob(blob, name);
+    } catch {
+      announce("Não foi possível baixar o original gerado pelo Gemini.");
+    }
+  };
   const saveHtml = () => {
     const html = buildStandaloneHtml(project);
     downloadBlob(
@@ -374,10 +584,12 @@ export function StudioPage({
   const saveZip = () => {
     try {
       const html = buildStandaloneHtml(project);
-      const readme = `SITE EXPRESS · PACOTE DO SITE\n\n1. Extraia o arquivo ZIP.\n2. Abra index.html no navegador para conferir o site.\n3. Para publicar, envie index.html para a raiz de uma hospedagem de arquivos estáticos.\n\nOs estilos e as imagens enviadas pelo editor estão incorporados em index.html. Links de WhatsApp, mapas, vídeos e imagens informadas por URL externa exigem internet.\n\nAntes da publicação, revise os textos, o número de contato e as autorizações de uso de fotos e depoimentos. Este pacote não publica o site automaticamente.\n`;
+      const assets = imageAssets(project);
+      const readme = `SITE EXPRESS · PACOTE DO SITE\n\n1. Extraia o arquivo ZIP.\n2. Abra index.html no navegador para conferir o site.\n3. Para publicar, envie index.html para a raiz de uma hospedagem de arquivos estáticos.\n\nOs estilos e as imagens enviadas pelo editor estão incorporados em index.html. As imagens disponíveis também estão separadas no ZIP; fotos por URL externa não podem ser incluídas sem o arquivo original. As imagens incorporadas ao site foram otimizadas para caber no projeto. Se você gerou imagens com Gemini, baixe a versão original na prévia antes de aplicá-la para guardar a resolução recebida.\n\nCHECKLIST DAS IMAGENS\n${imageChecklist(project).join("\n")}\n\nAntes da publicação, revise os textos, o número de contato e as autorizações de uso de fotos e depoimentos. Este pacote não publica o site automaticamente.\n`;
       const archive = createZip([
         { name: "index.html", content: html },
         { name: "README.txt", content: readme },
+        ...assets,
       ]);
       downloadBlob(
         new Blob([new Uint8Array(archive).buffer], { type: "application/zip" }),
@@ -1095,7 +1307,13 @@ export function StudioPage({
                       <button
                         type="button"
                         className="sx-studio-button sx-studio-button--danger"
-                        onClick={() => editAppearance({ heroImage: "", heroImageAlt: "" })}
+                        onClick={() =>
+                          editAppearance({
+                            heroImage: "",
+                            heroImageAlt: "",
+                            heroImageIllustrative: false,
+                          })
+                        }
                       >
                         <Trash2 size={13} /> Remover foto
                       </button>
@@ -1124,6 +1342,59 @@ export function StudioPage({
                       </select>
                     </label>
                   </div>
+                </Group>
+                <Group title="Imagens para celular e Sobre">
+                  <p className="sx-studio-hint">
+                    Use composições próprias para cada tela. Se um campo ficar vazio, o site
+                    reaproveita a imagem disponível.
+                  </p>
+                  {(
+                    [
+                      [
+                        "heroMobile",
+                        "Capa para celular",
+                        project.appearance.heroImageMobile || "",
+                        "heroMobile",
+                      ],
+                      [
+                        "about",
+                        "Sobre no computador",
+                        project.appearance.aboutImage || "",
+                        "aboutDesktop",
+                      ],
+                      [
+                        "aboutMobile",
+                        "Sobre no celular",
+                        project.appearance.aboutImageMobile || "",
+                        "aboutMobile",
+                      ],
+                    ] as const
+                  ).map(([destination, title, image, slot]) => (
+                    <div className="sx-studio-extra-image" key={destination}>
+                      <strong>{title}</strong>
+                      <label className="sx-studio-upload">
+                        <ImagePlus size={18} />
+                        <span>Enviar foto autorizada</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(event) => upload(event, destination)}
+                        />
+                      </label>
+                      {image && (
+                        <>
+                          <img src={image} alt={`Prévia: ${title}`} />
+                          <button
+                            type="button"
+                            className="sx-studio-button sx-studio-button--danger"
+                            onClick={() => commit(withProjectImage(project, slot, "", "remove", 0))}
+                          >
+                            Remover
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </Group>
                 <Group title="Logotipo">
                   <label className="sx-studio-upload">
@@ -1171,6 +1442,12 @@ export function StudioPage({
                               gallery: project.gallery.filter(
                                 (_, itemIndex) => itemIndex !== index,
                               ),
+                              galleryIllustrative: project.gallery
+                                .map(
+                                  (_, itemIndex) =>
+                                    project.galleryIllustrative?.[itemIndex] ?? false,
+                                )
+                                .filter((_, itemIndex) => itemIndex !== index),
                             })
                           }
                         >
@@ -1180,6 +1457,137 @@ export function StudioPage({
                     ))}
                   </div>
                 </Group>
+                {enableAiTools && (
+                  <Group title="Imagens com Gemini">
+                    <p className="sx-studio-hint">
+                      Crie uma foto nova ou melhore uma foto enviada por você. Cada pedido pode
+                      consumir sua cota da API. Confira a prévia antes de usar no site.
+                    </p>
+                    <div className="sx-studio-field">
+                      <label>
+                        Onde usar
+                        <select
+                          value={imageTarget}
+                          onChange={(event) => {
+                            setImageTarget(event.currentTarget.value as ImageSlot);
+                            setImageProposal(null);
+                          }}
+                        >
+                          <option value="heroDesktop">Capa no computador · 16:9</option>
+                          <option value="heroMobile">Capa no celular · 1:1</option>
+                          <option value="aboutDesktop">Sobre no computador · 4:3</option>
+                          <option value="aboutMobile">Sobre no celular · 4:5</option>
+                          <option value="gallery">Galeria · 4:3</option>
+                        </select>
+                      </label>
+                    </div>
+                    {imageTarget === "gallery" && project.gallery.length > 0 && (
+                      <div className="sx-studio-field">
+                        <label>
+                          Foto a melhorar
+                          <select
+                            value={Math.min(imageIndex, project.gallery.length - 1)}
+                            onChange={(event) => {
+                              setImageIndex(Number(event.currentTarget.value));
+                              setImageProposal(null);
+                            }}
+                          >
+                            {project.gallery.map((_, index) => (
+                              <option key={index} value={index}>
+                                Foto {index + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
+                    <div className="sx-studio-field">
+                      <label>
+                        Descrição da imagem desejada
+                        <textarea
+                          value={imagePrompt}
+                          maxLength={2_000}
+                          onChange={(event) => setImagePrompt(event.currentTarget.value)}
+                          placeholder="Ex.: detalhe ilustrativo de ferramentas genéricas em bancada neutra, com luz suave"
+                        />
+                      </label>
+                    </div>
+                    <p className="sx-studio-hint">
+                      Para mostrar sua equipe, local ou produto real, envie a foto original e use
+                      “Melhorar foto enviada”. Cenas criadas sem foto serão marcadas como
+                      ilustrativas.
+                    </p>
+                    <div className="sx-studio-image-actions">
+                      <button
+                        type="button"
+                        className="sx-studio-button sx-studio-button--outline"
+                        disabled={
+                          imageBusy || (imageTarget === "gallery" && project.gallery.length >= 8)
+                        }
+                        onClick={() => void requestImage("generate")}
+                      >
+                        <Sparkles size={14} /> Gerar foto nova
+                      </button>
+                      <button
+                        type="button"
+                        className="sx-studio-button sx-studio-button--outline"
+                        disabled={
+                          imageBusy || !projectImageForSlot(project, imageTarget, imageIndex)
+                        }
+                        onClick={() => void requestImage("enhance")}
+                      >
+                        <Sparkles size={14} /> Melhorar foto enviada
+                      </button>
+                    </div>
+                    {imageBusy && (
+                      <p className="sx-studio-hint" role="status">
+                        Preparando imagem…
+                      </p>
+                    )}
+                    {imageProposal && (
+                      <div className="sx-studio-image-proposal">
+                        <div className="sx-studio-image-comparison">
+                          {imageProposal.mode === "enhance" && (
+                            <div>
+                              <strong>Foto original</strong>
+                              <img src={imageProposal.original} alt="Foto original enviada" />
+                            </div>
+                          )}
+                          <div>
+                            <strong>Prévia do Gemini</strong>
+                            <img src={imageProposal.image} alt="Prévia criada pelo Gemini" />
+                          </div>
+                        </div>
+                        <p>Revise detalhes, pessoas, produtos e identidade antes de aceitar.</p>
+                        <div className="sx-studio-image-actions">
+                          <button
+                            type="button"
+                            className="sx-studio-button sx-studio-button--dark"
+                            disabled={imageBusy}
+                            onClick={() => void acceptImage()}
+                          >
+                            Usar esta imagem
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-studio-button sx-studio-button--outline"
+                            onClick={() => void downloadProposedImage()}
+                          >
+                            Baixar original
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-studio-button sx-studio-button--light"
+                            disabled={imageBusy}
+                            onClick={() => setImageProposal(null)}
+                          >
+                            Descartar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Group>
+                )}
               </>
             )}
             {tab === "marketing" && (
@@ -1220,6 +1628,7 @@ export function StudioPage({
             <SitePreview
               project={project}
               editable
+              previewViewport={viewport}
               selectedField={selectedField}
               onSelectField={setSelectedField}
               onEditField={editField}
