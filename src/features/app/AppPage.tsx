@@ -38,6 +38,7 @@ import {
 import {
   placeDetailsDraft,
   placePhotoUrl,
+  placeTemplate,
   type PlacePhoto,
   type PlaceSearchResult,
 } from "./places";
@@ -545,12 +546,14 @@ export function AppPage() {
 
   async function selectPlace(place: PlaceSearchResult) {
     const requestId = ++placeSelectionRef.current;
+    const template = placeTemplate(place.category);
     setPlacePhotos([]);
     setSelectedPhotoName(null);
     setNewSite((current) => ({
       ...current,
       name: place.name,
-      category: place.category ?? "",
+      category: template.category,
+      archetype: template.archetype,
       address: place.address,
       phone: "",
       website: "",
@@ -721,11 +724,13 @@ export function AppPage() {
                   value={authForm.password}
                   onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
                   required
-                  minLength={authTab === "register" ? 12 : 1}
+                  minLength={authTab === "register" ? 8 : 1}
                   autoComplete={authTab === "register" ? "new-password" : "current-password"}
                 />
               </label>
-              {authTab === "register" && <small>Use pelo menos 12 caracteres.</small>}
+              {authTab === "register" && (
+                <small>Use pelo menos 8 caracteres e evite senhas comuns.</small>
+              )}
               <button className="sx-app-primary" disabled={authBusy}>
                 {authBusy
                   ? "Aguarde…"

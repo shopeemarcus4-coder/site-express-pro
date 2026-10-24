@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSiteProject } from "../studio/presets";
-import { placeDetailsDraft, placePhotoUrl, type PlaceSearchResult } from "./places";
+import { placeDetailsDraft, placePhotoUrl, placeTemplate, type PlaceSearchResult } from "./places";
 
 const selected: PlaceSearchResult = {
   placeId: "ChIJtest123",
@@ -10,6 +10,20 @@ const selected: PlaceSearchResult = {
 };
 
 describe("Google Places project import", () => {
+  it("selects the matching initial model from a Google business type", () => {
+    expect(placeTemplate("restaurant")).toEqual({
+      category: "Restaurante",
+      archetype: "gastronomia",
+    });
+    expect(placeTemplate("dentist")).toEqual({
+      category: "Clínica odontológica",
+      archetype: "servicos",
+    });
+    expect(placeTemplate("clothing_store")).toEqual({
+      category: "Loja de roupas",
+      archetype: "produtos",
+    });
+  });
   it("copies only matching business details into editable draft fields", () => {
     const details = placeDetailsDraft(
       {

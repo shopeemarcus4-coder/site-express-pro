@@ -7,7 +7,7 @@ import { isSameOrigin, jsonError, readJson, sessionCookie } from "../../../lib/s
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(254),
-  password: z.string().min(12).max(256),
+  password: z.string().min(8).max(256),
   organizationName: z.string().trim().min(2).max(120).optional(),
 });
 
@@ -20,9 +20,11 @@ export const Route = createFileRoute("/api/auth/register")({
           const parsed = schema.safeParse(await readJson(request, 16_384));
           if (!parsed.success)
             return jsonError(
-              "Confira nome, e-mail e senha. A senha precisa ter ao menos 12 caracteres.",
+              "Confira nome, e-mail e senha. A senha precisa ter ao menos 8 caracteres.",
               400,
             );
+          if (/^(admin123|password|12345678|senha123|qwerty123)$/i.test(parsed.data.password))
+            return jsonError("Escolha uma senha menos comum para proteger seus projetos.", 400);
           const store = getStore(request);
           const user = await store.register({
             name: parsed.data.name,

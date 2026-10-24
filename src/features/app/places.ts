@@ -10,6 +10,53 @@ export type PlacePhoto = {
   attributions: { displayName: string; uri: string | null }[];
 };
 
+export function placeTemplate(category: string | null | undefined): {
+  category: string;
+  archetype: "gastronomia" | "servicos" | "produtos";
+} {
+  const type = category?.toLowerCase().trim() ?? "";
+  const food = new Set([
+    "restaurant",
+    "cafe",
+    "bakery",
+    "bar",
+    "meal_takeaway",
+    "meal_delivery",
+    "pizza_restaurant",
+    "hamburger_restaurant",
+    "coffee_shop",
+    "ice_cream_shop",
+  ]);
+  const products = new Set([
+    "store",
+    "clothing_store",
+    "shoe_store",
+    "electronics_store",
+    "florist",
+    "furniture_store",
+    "gift_shop",
+    "grocery_store",
+    "supermarket",
+    "pet_store",
+  ]);
+  const labels: Record<string, string> = {
+    restaurant: "Restaurante",
+    cafe: "Café",
+    bakery: "Padaria",
+    bar: "Bar",
+    dentist: "Clínica odontológica",
+    doctor: "Consultório",
+    beauty_salon: "Salão de beleza",
+    store: "Loja",
+    clothing_store: "Loja de roupas",
+    supermarket: "Supermercado",
+  };
+  return {
+    category: labels[type] ?? type.replaceAll("_", " "),
+    archetype: food.has(type) ? "gastronomia" : products.has(type) ? "produtos" : "servicos",
+  };
+}
+
 export type ImportedPlaceDetails = {
   name: string;
   address: string;
