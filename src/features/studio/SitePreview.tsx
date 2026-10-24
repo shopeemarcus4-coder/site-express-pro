@@ -118,13 +118,15 @@ function ActionLink({
   children,
   className,
   editable,
+  destination,
 }: {
   project: SiteProject;
   children: ReactNode;
   className: string;
   editable?: boolean;
+  destination?: string | undefined;
 }) {
-  const href = whatsappHref(project);
+  const href = destination || whatsappHref(project);
   return (
     <a
       className={className}
@@ -210,11 +212,27 @@ export function SitePreview({
     />
   );
   const location = [business.city, business.state].filter(Boolean).join(" · ");
-  const mapAddress = [business.address, business.city, business.state].filter(Boolean).join(", ");
+  const mapAddress = business.address.trim()
+    ? [business.address, business.city, business.state].filter(Boolean).join(", ")
+    : "";
   const mapEmbedUrl = mapAddress
     ? `https://www.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`
     : null;
   const hasContact = business.whatsapp.replace(/\D/g, "").length >= 10;
+  const mapHref = isSafeHttpUrl(business.mapsUrl)
+    ? business.mapsUrl
+    : mapAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapAddress)}`
+      : null;
+  const hasContactDestination = hasContact || !!mapHref;
+  const exploreHref =
+    active("services") && project.items.length > 0
+      ? "#servicos"
+      : active("about") && !!content.aboutBody
+        ? "#sobre"
+        : null;
+  const primaryHref = hasContact ? whatsappHref(project) : mapHref || exploreHref;
+  const primaryLabel = hasContact ? content.ctaLabel : mapHref ? "Como chegar" : "Conhecer mais";
   const navItems = [
     active("services") && project.items.length > 0
       ? {
@@ -229,7 +247,7 @@ export function SitePreview({
       : null,
     active("about") && !!content.aboutBody ? { href: "#sobre", label: "Sobre" } : null,
     active("gallery") && project.gallery.length > 0 ? { href: "#galeria", label: "Galeria" } : null,
-    active("contact") ? { href: "#contato", label: "Contato" } : null,
+    active("contact") && hasContactDestination ? { href: "#contato", label: "Contato" } : null,
   ].filter((value): value is { href: string; label: string } => !!value);
 
   return (
@@ -279,10 +297,17 @@ export function SitePreview({
             </nav>
           </details>
         )}
-        <ActionLink project={project} editable={editable} className="sx-site-header-cta">
-          {hasContact ? "Fale conosco" : "Contato"}
-          <ArrowRight size={16} aria-hidden="true" />
-        </ActionLink>
+        {(editable || (active("contact") && hasContactDestination)) && (
+          <ActionLink
+            project={project}
+            editable={editable}
+            destination={hasContact ? undefined : "#contato"}
+            className="sx-site-header-cta"
+          >
+            {hasContact ? "Fale conosco" : "Contato"}
+            <ArrowRight size={16} aria-hidden="true" />
+          </ActionLink>
+        )}
       </header>
 
       {active("hero") && (
@@ -298,15 +323,18 @@ export function SitePreview({
             {text("heroTitle", content.heroTitle, "h1", "sx-site-hero-title")}
             {text("heroSubtitle", content.heroSubtitle, "p", "sx-site-hero-subtitle")}
             <div className="sx-site-hero-actions">
-              <ActionLink
-                project={project}
-                editable={editable}
-                className="sx-site-button sx-site-button--primary"
-              >
-                {text("ctaLabel", content.ctaLabel)}
-                <ArrowRight size={18} aria-hidden="true" />
-              </ActionLink>
-              {active("services") && project.items.length > 0 && (
+              {(editable || primaryHref) && (
+                <ActionLink
+                  project={project}
+                  editable={editable}
+                  destination={primaryHref || undefined}
+                  className="sx-site-button sx-site-button--primary"
+                >
+                  {hasContact || editable ? text("ctaLabel", content.ctaLabel) : primaryLabel}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </ActionLink>
+              )}
+              {active("services") && project.items.length > 0 && primaryHref !== "#servicos" && (
                 <a href="#servicos" className="sx-site-button sx-site-button--secondary">
                   Conhecer mais <ArrowDownRight size={18} aria-hidden="true" />
                 </a>
@@ -652,7 +680,8 @@ export function SitePreview({
               </section>
             );
           }
-          if (section.id === "contact")
+          if (section.id === "contact") {
+            if (!editable && !hasContactDestination) return null;
             return (
               <section key={section.id} id="contato" className="sx-site-contact">
                 <div>
@@ -680,10 +709,10 @@ export function SitePreview({
                     {business.city ? `, ${business.city}` : ""}
                   </p>
                 )}
-                {business.mapsUrl && isSafeHttpUrl(business.mapsUrl) && (
+                {mapHref && (
                   <a
                     className="sx-site-maps"
-                    href={business.mapsUrl}
+                    href={mapHref}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -702,6 +731,7 @@ export function SitePreview({
                 )}
               </section>
             );
+          }
           if (section.id === "promo") {
             if (!editable && !content.promoBody) return null;
             return (
@@ -714,13 +744,16 @@ export function SitePreview({
                   {text("promoTitle", content.promoTitle, "h2")}
                   {text("promoBody", content.promoBody, "p")}
                 </div>
-                <ActionLink
-                  project={project}
-                  editable={editable}
-                  className="sx-site-button sx-site-button--secondary"
-                >
-                  Saiba mais <ArrowRight size={18} aria-hidden="true" />
-                </ActionLink>
+                {(editable || primaryHref) && (
+                  <ActionLink
+                    project={project}
+                    editable={editable}
+                    destination={primaryHref || undefined}
+                    className="sx-site-button sx-site-button--secondary"
+                  >
+                    Saiba mais <ArrowRight size={18} aria-hidden="true" />
+                  </ActionLink>
+                )}
               </section>
             );
           }

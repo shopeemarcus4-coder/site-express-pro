@@ -135,6 +135,7 @@ export class D1SiteExpressStore {
         CREATE TABLE IF NOT EXISTS public_sites (slug TEXT PRIMARY KEY, organization_id TEXT NOT NULL, body TEXT NOT NULL, updated_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_write_guard (organization_id TEXT PRIMARY KEY, valid INTEGER NOT NULL CHECK(valid = 1));
         CREATE TABLE IF NOT EXISTS image_usage (organization_id TEXT NOT NULL, day TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (organization_id, day));
+        CREATE TABLE IF NOT EXISTS guest_image_usage (scope TEXT NOT NULL, day TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (scope, day));
       `,
         )
         .then(() => undefined)
@@ -160,6 +161,27 @@ export class D1SiteExpressStore {
       .bind(organizationId, day, limit)
       .run();
     return result.success && (result.meta?.changes ?? 0) > 0;
+  }
+
+  async consumeGuestImageQuota(
+    clientId: string,
+    day: string,
+    perClientLimit: number,
+    globalLimit: number,
+  ): Promise<boolean> {
+    await this.ready();
+    const statement = `
+      INSERT INTO guest_image_usage (scope, day, calls) VALUES (?, ?, 1)
+      ON CONFLICT (scope, day) DO UPDATE SET calls = calls + 1
+      WHERE calls < ?
+    `;
+    const perClient = await this.db
+      .prepare(statement)
+      .bind(`client:${clientId}`, day, perClientLimit)
+      .run();
+    if (!perClient.success || (perClient.meta?.changes ?? 0) === 0) return false;
+    const global = await this.db.prepare(statement).bind("global", day, globalLimit).run();
+    return global.success && (global.meta?.changes ?? 0) > 0;
   }
 
   async register(input: {

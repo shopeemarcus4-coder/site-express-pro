@@ -17,6 +17,8 @@ describe("integration secrets", () => {
           SITE_EXPRESS_ENABLE_PLACES: "1",
           GEMINI_API_KEY: "worker-gemini-key",
           SITE_EXPRESS_ENABLE_AI_IMAGES: "1",
+          SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES: "1",
+          SITE_EXPRESS_IMAGE_GLOBAL_DAILY_LIMIT: "20",
         },
       },
     };
@@ -24,6 +26,8 @@ describe("integration secrets", () => {
     expect(integrationEnv(request).SITE_EXPRESS_ENABLE_PLACES).toBe("1");
     expect(integrationEnv(request).GEMINI_API_KEY).toBe("worker-gemini-key");
     expect(integrationEnv(request).SITE_EXPRESS_ENABLE_AI_IMAGES).toBe("1");
+    expect(integrationEnv(request).SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES).toBe("1");
+    expect(integrationEnv(request).SITE_EXPRESS_IMAGE_GLOBAL_DAILY_LIMIT).toBe("20");
     request.runtime.cloudflare.env = {};
     expect(integrationEnv(request).GOOGLE_PLACES_API_KEY).toBeUndefined();
   });

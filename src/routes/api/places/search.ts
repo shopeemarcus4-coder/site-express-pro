@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getAuthenticatedUser, isSameOrigin, jsonError, readJson } from "../../../lib/server/auth";
+import { isSameOrigin, jsonError, readJson } from "../../../lib/server/auth";
 import {
   PlacesError,
   placesEnabled,
+  placePhotosEnabled,
+  placeReviewsEnabled,
   publicPlacesEnabled,
   placesMessage,
   placesSearchInput,
@@ -15,10 +17,16 @@ export const Route = createFileRoute("/api/places/search")({
     handlers: {
       GET: async ({ request }) => {
         const env = integrationEnv(request);
-        if (!(await getAuthenticatedUser(request)) && !publicPlacesEnabled(env))
-          return jsonError("Entre na sua conta para consultar integrações.", 401);
+        const availableWithoutAccount = publicPlacesEnabled(env);
         return Response.json(
-          { configured: placesEnabled(env) },
+          {
+            configured: placesEnabled(env),
+            availableWithoutAccount,
+            photosEnabled: availableWithoutAccount && placePhotosEnabled(env),
+            reviewsEnabled: availableWithoutAccount && placeReviewsEnabled(env),
+            contactFieldsEnabled:
+              availableWithoutAccount && env.SITE_EXPRESS_ENABLE_PLACES_CONTACT_FIELDS === "1",
+          },
           {
             headers: { "Cache-Control": "no-store" },
           },
@@ -27,8 +35,8 @@ export const Route = createFileRoute("/api/places/search")({
       POST: async ({ request }) => {
         if (!isSameOrigin(request)) return jsonError("Origem da solicitação não autorizada.", 403);
         const env = integrationEnv(request);
-        if (!(await getAuthenticatedUser(request)) && !publicPlacesEnabled(env))
-          return jsonError("Entre na sua conta para buscar empresas.", 401);
+        if (!publicPlacesEnabled(env))
+          return jsonError("A busca de empresas sem conta ainda não foi ativada.", 503);
         try {
           if (!placesEnabled(env)) throw new PlacesError("not_configured", 503);
           const input = placesSearchInput.parse(await readJson(request, 1_024));

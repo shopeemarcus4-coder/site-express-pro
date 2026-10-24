@@ -96,21 +96,12 @@ function Home() {
               Pesquise uma empresa, complete as informações e edite o site visualmente. Tudo em um
               só lugar.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-5">
+            <div className="mt-9">
               <Button asChild variant="brand" size="xl">
                 <Link to="/app">
                   Criar meu site agora <ArrowRight />
                 </Link>
               </Button>
-              <Link
-                to="/como-funciona"
-                className="group inline-flex items-center gap-3 text-sm font-medium text-hero-foreground"
-              >
-                <span className="grid size-11 place-items-center rounded-full border border-hero-foreground/40 transition-colors group-hover:border-hero-foreground">
-                  <ArrowRight className="size-4" />
-                </span>
-                Ver como funciona
-              </Link>
             </div>
             <ul className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-hero-muted">
               <li className="flex items-center gap-2">
@@ -161,43 +152,30 @@ function Home() {
       {/* Templates */}
       <section className="border-y border-border bg-surface">
         <div className="mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-24">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <p className="eyebrow text-muted-foreground">Modelos por segmento</p>
-              <h2 className="mt-4 text-3xl font-normal md:text-[2.6rem]">
-                Um ponto de partida para cada negócio.
-              </h2>
-            </div>
-            <Link
-              to="/modelos"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:underline underline-offset-4"
-            >
-              Ver todos os modelos <ArrowRight className="size-4" />
-            </Link>
+          <div>
+            <p className="eyebrow text-muted-foreground">Modelos por segmento</p>
+            <h2 className="mt-4 text-3xl font-normal md:text-[2.6rem]">
+              Um ponto de partida para cada negócio.
+            </h2>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {TEMPLATES.map((t) => (
-              <Link key={t.id} to="/modelos" className="group block">
-                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-shadow duration-200 group-hover:shadow-lift">
+              <article key={t.id}>
+                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
                   <img
                     src={t.image}
                     alt={`Prévia demonstrativa do modelo ${t.name}`}
                     width={1280}
                     height={800}
                     loading="lazy"
-                    className="aspect-[16/10] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]"
+                    className="aspect-[16/10] w-full object-cover object-top"
                   />
                 </div>
-                <div className="mt-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{t.name}</h3>
-                    <p className="text-sm text-muted-foreground">{t.segment}</p>
-                  </div>
-                  <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full border border-border transition-colors group-hover:bg-brand group-hover:border-brand group-hover:text-brand-foreground">
-                    <ArrowRight className="size-4" />
-                  </span>
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold">{t.name}</h3>
+                  <p className="text-sm text-muted-foreground">{t.segment}</p>
                 </div>
-              </Link>
+              </article>
             ))}
           </div>
           <p className="mt-8 text-xs text-muted-foreground">

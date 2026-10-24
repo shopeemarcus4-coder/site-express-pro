@@ -10,6 +10,13 @@ export type PlacePhoto = {
   attributions: { displayName: string; uri: string | null }[];
 };
 
+export type PlaceReview = {
+  rating: number;
+  text: string;
+  author: { displayName: string; uri: string | null };
+  relativeTime: string | null;
+};
+
 export function placeTemplate(category: string | null | undefined): {
   category: string;
   archetype: "gastronomia" | "servicos" | "produtos";
@@ -64,6 +71,9 @@ export type ImportedPlaceDetails = {
   website: string;
   mapsUrl: string;
   photos: PlacePhoto[];
+  rating: number | null;
+  userRatingCount: number | null;
+  reviews: PlaceReview[];
 };
 
 function nonEmptyText(value: unknown): string | null {
@@ -96,7 +106,7 @@ export function placeDetailsDraft(
   const website = safeWebsite(details["website"]);
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${encodeURIComponent(selected.placeId)}`;
   const photos = Array.isArray(details["photos"])
-    ? details["photos"].slice(0, 8).flatMap((value): PlacePhoto[] => {
+    ? details["photos"].slice(0, 10).flatMap((value): PlacePhoto[] => {
         if (!value || typeof value !== "object") return [];
         const photo = value as Record<string, unknown>;
         if (
@@ -116,6 +126,34 @@ export function placeDetailsDraft(
         return [{ name: photo["name"], attributions }];
       })
     : [];
+  const rating = details["rating"];
+  const userRatingCount = details["userRatingCount"];
+  const reviews = Array.isArray(details["reviews"])
+    ? details["reviews"].slice(0, 5).flatMap((value): PlaceReview[] => {
+        if (!value || typeof value !== "object") return [];
+        const review = value as Record<string, unknown>;
+        const author = review["author"] as Record<string, unknown> | null;
+        if (
+          typeof review["rating"] !== "number" ||
+          review["rating"] < 1 ||
+          review["rating"] > 5 ||
+          typeof review["text"] !== "string" ||
+          typeof author?.["displayName"] !== "string"
+        )
+          return [];
+        return [
+          {
+            rating: review["rating"],
+            text: review["text"],
+            author: {
+              displayName: author["displayName"],
+              uri: safeWebsite(author["uri"]),
+            },
+            relativeTime: nonEmptyText(review["relativeTime"]),
+          },
+        ];
+      })
+    : [];
   return {
     name,
     address: address ?? selected.address,
@@ -123,9 +161,20 @@ export function placeDetailsDraft(
     website: website ?? "",
     mapsUrl,
     photos,
+    rating:
+      typeof rating === "number" && Number.isFinite(rating) && rating >= 1 && rating <= 5
+        ? rating
+        : null,
+    userRatingCount:
+      typeof userRatingCount === "number" &&
+      Number.isInteger(userRatingCount) &&
+      userRatingCount >= 0
+        ? userRatingCount
+        : null,
+    reviews,
   };
 }
 
-export function placePhotoUrl(name: string): string {
-  return `/api/places/photo?name=${encodeURIComponent(name)}`;
+export function placePhotoUrl(name: string, width?: 360 | 1200): string {
+  return `/api/places/photo?name=${encodeURIComponent(name)}${width === 1200 ? "&maxWidthPx=1200" : ""}`;
 }

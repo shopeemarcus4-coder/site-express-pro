@@ -4,25 +4,12 @@ Aplicativo para criar, editar e exportar sites de negócios. A interface públic
 
 O projeto está [conectado à Lovable](https://lovable.dev/projects/c1265820-e937-43ca-8589-c00d929f3e34). Alterações enviadas à branch `main` do [repositório](https://github.com/shopeemarcus4-coder/site-express-pro) sincronizam com o editor. O desenvolvimento deste projeto é feito pelo código e GitHub, sem usar a IA ou créditos da Lovable.
 
-## Uso local
+## Criar um site
 
-Com Node.js e as dependências disponíveis:
+Abra `/app`. O criador agora começa diretamente, sem cadastro ou login. Os rascunhos ficam neste navegador e o editor exporta HTML e ZIP para guardar ou hospedar o site. Não há administração, preços nem publicação automática nesta fase. Contas e publicação por link ficam pausadas; seus APIs antigos permanecem no código para uma fase futura, mas o criador não depende de um banco D1.
 
-```sh
-npm run dev
-npm run build
-npm run test
-npm run lint
-```
+A busca de empresas e as fotos do Google são opcionais. Para usá-las **sem conta e sem D1**, configure no ambiente do servidor `GOOGLE_PLACES_API_KEY`, `SITE_EXPRESS_ENABLE_PLACES=1` e `SITE_EXPRESS_ENABLE_PUBLIC_PLACES=1`; para ver fotos, configure também `SITE_EXPRESS_ENABLE_PLACES_PHOTOS=1`. Nota média, contagem e até cinco avaliações reais exigem ativação separada com `SITE_EXPRESS_ENABLE_PLACES_REVIEWS=1`. A API retorna até dez referências de fotos por empresa, não a galeria completa do Google. O uso público pode consumir cota ou gerar cobrança no Google Cloud: defina cotas e limites na sua conta antes de ativá-lo. As fotos do Google aparecem como referência com créditos; elas não são copiadas para o site gerado. Envie fotos próprias ou autorizadas ao criar o projeto ou no editor para publicar ou exportar.
 
-Abra `/app` para criar um site. O modo local guarda rascunhos neste navegador e permite exportar um HTML independente. Contas, salvamento entre dispositivos e publicação por link exigem um banco persistente na hospedagem. Consulte [a configuração do servidor](src/lib/server/README.md) antes de ativar essas funções em produção.
+Sem essas configurações, a busca explica por que está indisponível e a criação manual continua funcionando. A geração de imagens com Gemini pode funcionar sem login quando `GEMINI_API_KEY`, `SITE_EXPRESS_ENABLE_AI_IMAGES=1`, `SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES=1` e o banco D1 `SITE_EXPRESS_DB` estiverem configurados no servidor; ela tem limites diários por visitante e globais. Sem essas condições, o editor informa indisponibilidade e não chama o Gemini. A reescrita de texto e as minutas de contrato estão fora da interface por enquanto. Nenhuma chave deve entrar no repositório. Veja [as regras de imagem](docs/image-generation.md).
 
-Google Places e reescrita com IA são opcionais, ficam desativados sem chaves e não são necessários para criar sites manualmente. As minutas de contrato precisam de revisão jurídica antes de uso externo. Leia [as regras do projeto](regra.md) para a recomendação da IA em cada novo processo.
-
-Para buscar empresas e mostrar as fotos do Google em uma conta autenticada, configure no servidor `GOOGLE_PLACES_API_KEY`, `SITE_EXPRESS_ENABLE_PLACES=1` e `SITE_EXPRESS_ENABLE_PLACES_PHOTOS=1`. Cada foto exibida consulta o Google Photo Media e pode consumir a cota ou gerar cobrança do Google Cloud; por isso, o interruptor de fotos é separado. O Site Express mostra até oito fotos como referência e seus créditos, mas não inclui fotos do Google no site publicado ou no HTML exportado. A capa final deve ser enviada pelo usuário na aba Marca. Veja [a análise da referência Emergent](docs/emergent-reference.md).
-
-Na Lovable, cadastre os valores em **Secrets/Environment Variables** do projeto, sem colocar chaves no código ou em arquivos versionados. A reescrita opcional de texto usa `GEMINI_API_KEY` e `SITE_EXPRESS_ENABLE_AI=1` (modelo padrão: `gemini-2.5-flash`; `SITE_EXPRESS_GEMINI_MODEL` é opcional). A criação e melhoria de imagens usa a mesma chave, mas exige ativação separada com `SITE_EXPRESS_ENABLE_AI_IMAGES=1` (modelo padrão: `gemini-2.5-flash-image`; `SITE_EXPRESS_GEMINI_IMAGE_MODEL` é opcional). O limite interno padrão é **4 pedidos de imagem por organização por dia UTC**; `SITE_EXPRESS_IMAGE_DAILY_LIMIT` pode definir um inteiro entre 1 e 20. Cada pedido exige clique explícito, pode consumir cota ou gerar cobrança no provedor e só aplica a imagem após aprovação da prévia. A busca usa `GOOGLE_PLACES_API_KEY` e `SITE_EXPRESS_ENABLE_PLACES=1`; as fotos exigem também `SITE_EXPRESS_ENABLE_PLACES_PHOTOS=1`. O Google Places requer um projeto Google Cloud com Places API (New) habilitada e pode exigir faturamento. Os segredos são lidos das variáveis do servidor Cloudflare em cada solicitação. Para usar as telas autenticadas na hospedagem, também é necessário o banco D1 `SITE_EXPRESS_DB` descrito [aqui](src/lib/server/README.md); as chaves sozinhas não ativam login, salvamento nem imagens.
-
-O buscador também aparece no modo local. Para permitir consultas sem login e sem D1, adicione `SITE_EXPRESS_ENABLE_PUBLIC_PLACES=1`. Essa opção expõe a cota de Google Places a visitantes do site; configure limites de uso no Google Cloud antes de ativá-la. Sem esse interruptor, a busca pública informa que exige conta, enquanto a criação manual continua disponível.
-
-No editor de uma conta, os botões “Melhorar ... com IA” enviam o texto informado ao Gemini somente quando alguém clica. A IA reescreve a descrição inicial ou a história; não cria fatos, avaliações ou fotos e não substitui a revisão antes da publicação.
+Para desenvolver localmente, use `npm run dev`, `npm test`, `npm run build` e `npm run lint`. Consulte [as regras do projeto](regra.md) para a recomendação da IA em cada processo. O [armazenamento D1](src/lib/server/README.md) é necessário para limitar com segurança o Gemini público. O [preparo Cloudflare](docs/CLOUDFLARE_DEPLOY.md) e a [preparação Vercel](docs/VERCEL_PUBLISH.md) estão documentados; a publicação direta pelo editor ainda depende de acesso seguro à conta Vercel.

@@ -7,11 +7,8 @@ import { ThemeToggle } from "./theme";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/", label: "Início" },
   { to: "/como-funciona", label: "Como funciona" },
   { to: "/modelos", label: "Modelos" },
-  { to: "/precos", label: "Preços" },
-  { to: "/ajuda", label: "Ajuda" },
 ] as const;
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {

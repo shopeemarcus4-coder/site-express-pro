@@ -83,4 +83,31 @@ describe("Google Places project import", () => {
       "/api/places/photo?name=places%2FChIJtest123%2Fphotos%2FPhotoA",
     );
   });
+
+  it("shows only real returned ratings and reviews in the confirmation data", () => {
+    const details = placeDetailsDraft(
+      {
+        placeId: selected.placeId,
+        name: selected.name,
+        rating: 4.7,
+        userRatingCount: 123,
+        reviews: [
+          {
+            rating: 5,
+            text: "Atendimento cuidadoso.",
+            author: { displayName: "Maria", uri: "https://maps.google.com/" },
+            relativeTime: "há 2 semanas",
+          },
+          { rating: 5, text: "Sem autor" },
+        ],
+      },
+      selected,
+    );
+    expect(details).toMatchObject({
+      rating: 4.7,
+      userRatingCount: 123,
+      reviews: [{ text: "Atendimento cuidadoso.", author: { displayName: "Maria" } }],
+    });
+    expect(details?.reviews).toHaveLength(1);
+  });
 });

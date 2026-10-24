@@ -191,6 +191,30 @@ export function createSiteProject(input: BusinessInput): SiteProject {
   const copy = archetypeCopy[archetype];
   const palette = PALETTES[archetype][0]!;
   const now = new Date().toISOString();
+  const name = input.name.trim();
+  const category = input.category?.trim() ?? "";
+  const city = input.city?.trim() ?? "";
+  const hasWhatsapp = (input.whatsapp?.replace(/\D/g, "").length ?? 0) >= 10;
+  const hasLocation = Boolean(input.address?.trim() || input.mapsUrl?.trim());
+  const businessDescriptor = category
+    ? `${category}${city ? ` em ${city}` : ""}.`
+    : city
+      ? `Em ${city}.`
+      : "";
+  const supportingLine = hasWhatsapp
+    ? "Fale diretamente pelo WhatsApp."
+    : hasLocation
+      ? "Confira a localização e saiba como chegar."
+      : "";
+  const personalizedHero = Boolean(businessDescriptor) && name.length <= 70;
+  const contactTitle =
+    name.length <= 45
+      ? hasWhatsapp
+        ? `Fale com ${name}`
+        : hasLocation
+          ? `Encontre ${name}`
+          : copy.contact
+      : copy.contact;
   return {
     id:
       input.id ??
@@ -232,22 +256,23 @@ export function createSiteProject(input: BusinessInput): SiteProject {
       heroPosition: "50% 50%",
     },
     content: {
-      eyebrow: [input.category, input.city].filter(Boolean).join(" · "),
-      heroTitle: copy.title,
-      heroSubtitle: copy.subtitle,
-      ctaLabel:
-        archetype === "gastronomia"
-          ? "Fazer um pedido"
-          : archetype === "servicos"
-            ? "Agendar conversa"
-            : "Consultar produtos",
+      eyebrow: [category, city].filter(Boolean).join(" · "),
+      heroTitle: personalizedHero ? name : copy.title,
+      heroSubtitle: personalizedHero
+        ? [businessDescriptor, supportingLine].filter(Boolean).join(" ")
+        : copy.subtitle,
+      ctaLabel: hasWhatsapp ? "Falar no WhatsApp" : "Saiba mais",
       servicesTitle: copy.services,
-      aboutTitle: copy.about,
+      aboutTitle: name.length <= 45 ? `Sobre ${name}` : copy.about,
       aboutBody: "",
       galleryTitle: "Um olhar mais de perto",
       faqTitle: "Dúvidas frequentes",
-      contactTitle: copy.contact,
-      contactBody: "Estamos à disposição para conversar sobre o que você precisa.",
+      contactTitle,
+      contactBody: hasWhatsapp
+        ? "Envie uma mensagem pelo WhatsApp."
+        : hasLocation
+          ? "Confira a localização no mapa."
+          : "",
       promoTitle: "Uma novidade para você",
       promoBody: "",
       videoTitle: "Conheça mais sobre nós",

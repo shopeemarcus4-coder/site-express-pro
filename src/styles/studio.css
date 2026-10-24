@@ -19,7 +19,7 @@
   --ui-accent: #cfbb8a;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 64px);
+  height: 100dvh;
   min-height: 0;
   background: #eceef1;
   color: var(--ui-ink);
@@ -49,6 +49,51 @@
 .sx-studio-toolbar-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+.sx-studio-save-status {
+  color: #526158;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.sx-studio-export {
+  position: relative;
+}
+.sx-studio-export summary {
+  list-style: none;
+}
+.sx-studio-export summary::-webkit-details-marker {
+  display: none;
+}
+.sx-studio-export__options {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 212px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid #dfe4e0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px #17211929;
+  z-index: 50;
+}
+.sx-studio-export__options button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #172119;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+.sx-studio-export__options button:hover,
+.sx-studio-export__options button:focus-visible {
+  background: #f1f3ee;
 }
 .sx-studio-status {
   flex: none;
@@ -173,10 +218,16 @@
 }
 .sx-studio-body {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 284px minmax(0, 1fr);
   min-height: 0;
   flex: 1;
   overflow: hidden;
+}
+.sx-studio[data-panel-open="false"] .sx-studio-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sx-studio-panel[hidden] {
+  display: none;
 }
 .sx-studio-panel {
   background: #fff;
@@ -543,15 +594,16 @@
 .sx-studio-canvas-area {
   min-width: 0;
   min-height: 0;
-  padding: 18px 20px 30px;
+  padding: 24px clamp(18px, 2.3vw, 42px) 36px;
   overflow: auto;
 }
 .sx-studio-canvas-top {
-  height: 34px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 18px;
 }
 .sx-studio-canvas-top > div:first-child {
   display: flex;
@@ -577,11 +629,13 @@
   background: #e5e9e3;
 }
 .sx-studio-segment button {
-  width: 30px;
-  height: 29px;
+  min-height: 33px;
+  padding: 0 10px;
   border-radius: 6px;
   background: transparent;
   color: #7a847b;
+  font-size: 11px;
+  white-space: nowrap;
 }
 .sx-studio-segment button[data-active="true"] {
   background: #fff;
@@ -590,26 +644,61 @@
 }
 .sx-canvas-viewport {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1600px;
   margin: 0 auto;
   background: #fff;
-  min-height: 560px;
-  box-shadow:
-    0 16px 50px #293a2d1c,
-    0 0 0 1px #dbe0d8;
-  transition: width 0.25s;
+  overflow: hidden;
+  border: 1px solid #d3d8d7;
+  border-radius: 15px;
+  box-shadow: 0 20px 48px #293a2d24;
+  transition:
+    width 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.sx-canvas-viewport::before {
+  content: "";
+  display: block;
+  height: 32px;
+  border-bottom: 1px solid #e5e8e8;
+  background:
+    radial-gradient(circle at 19px 50%, #dc7470 0 3px, transparent 4px),
+    radial-gradient(circle at 31px 50%, #e8be58 0 3px, transparent 4px),
+    radial-gradient(circle at 43px 50%, #7eb98b 0 3px, transparent 4px), #f8f9fa;
+}
+.sx-canvas-screen {
+  min-width: 0;
 }
 .sx-canvas-viewport[data-viewport="tablet"] {
   width: min(100%, 768px);
 }
 .sx-canvas-viewport[data-viewport="mobile"] {
-  width: min(100%, 390px);
+  width: min(100%, 406px);
+  height: min(80dvh, 810px);
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  border: 8px solid #262a2f;
+  border-radius: 38px;
+  box-shadow: 0 22px 48px #17211933;
+}
+.sx-canvas-viewport[data-viewport="mobile"]::before {
+  flex: none;
+  height: 26px;
+  border: 0;
+  background: radial-gradient(ellipse 34px 5px at 50% 10px, #272a2e 95%, transparent 100%), #fff;
+}
+.sx-canvas-viewport[data-viewport="mobile"] .sx-canvas-screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 .sx-studio-canvas-bottom {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  max-width: 1440px;
+  max-width: 1600px;
   margin: 18px auto 0;
   color: #80887f;
   font-size: 10px;
@@ -1731,7 +1820,10 @@
     max-height: 310px;
   }
   .sx-studio-canvas-top {
-    height: 65px;
+    height: auto;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding-top: 14px;
   }
   .sx-studio-canvas-area {
     padding: 0 12px 30px;

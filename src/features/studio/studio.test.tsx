@@ -29,6 +29,44 @@ describe("studio site generation", () => {
     expect(html).toContain("https://wa.me/5511999991234");
   });
 
+  it("does not export contact links or a business map without contact details", () => {
+    const project = createSiteProject({ name: "Ateliê", city: "Recife" });
+    const dom = new JSDOM(buildStandaloneHtml(project));
+    const document = dom.window.document;
+    expect(document.querySelector(".sx-site-header-cta")).toBeNull();
+    expect(document.querySelector(".sx-site-hero-actions a")).toBeNull();
+    expect(document.querySelector(".sx-site-contact")).toBeNull();
+    expect(document.querySelector(".sx-site-map-frame")).toBeNull();
+    dom.window.close();
+  });
+
+  it("uses a confirmed address as the map destination when WhatsApp is missing", () => {
+    const project = createSiteProject({
+      name: "Ateliê",
+      address: "Rua Um, 10",
+      city: "Recife",
+    });
+    const dom = new JSDOM(buildStandaloneHtml(project));
+    const document = dom.window.document;
+    const heroAction = document.querySelector<HTMLAnchorElement>(".sx-site-hero-actions a");
+    expect(heroAction?.textContent).toContain("Como chegar");
+    expect(heroAction?.getAttribute("href")).toContain("google.com/maps/search/");
+    expect(document.querySelector(".sx-site-maps")?.getAttribute("href")).toBe(
+      heroAction?.getAttribute("href"),
+    );
+    dom.window.close();
+  });
+
+  it("guides visitors to real items when no contact destination is available", () => {
+    const project = createSiteProject({ name: "Ateliê", archetype: "produtos" });
+    project.items = [{ id: "first", title: "Peça", description: "", category: "" }];
+    const dom = new JSDOM(buildStandaloneHtml(project));
+    const actions = dom.window.document.querySelectorAll(".sx-site-hero-actions a");
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.getAttribute("href")).toBe("#servicos");
+    dom.window.close();
+  });
+
   it("keeps custom SEO text in the safe public site projection", () => {
     const project = createSiteProject({ name: "Ateliê", city: "Recife" });
     project.marketing = {
@@ -137,7 +175,7 @@ describe("studio site generation", () => {
   });
 
   it("closes the mobile menu after navigating in exported HTML", () => {
-    const project = createSiteProject({ name: "Ateliê" });
+    const project = createSiteProject({ name: "Ateliê", address: "Rua Um, 10" });
     const dom = new JSDOM(buildStandaloneHtml(project), { runScripts: "dangerously" });
     const menu = dom.window.document.querySelector<HTMLDetailsElement>(".sx-site-mobile-menu")!;
     menu.open = true;

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getPlaceDetails,
   getPlacePhoto,
+  placeReviewsEnabled,
   placesEnabled,
   publicPlacesEnabled,
   placesMessage,
@@ -85,6 +86,9 @@ describe("Google Places integration", () => {
       phone: null,
       website: null,
       location: null,
+      rating: null,
+      userRatingCount: null,
+      reviews: [],
     });
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://places.googleapis.com/v1/places/ChIJtest123");
@@ -144,6 +148,80 @@ describe("Google Places integration", () => {
     expect(fetcher.mock.calls[0]![1].headers["X-Goog-FieldMask"]).toContain("photos");
   });
 
+  it("returns every available Google photo reference up to the API cap of ten", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        id: "ChIJtest123",
+        displayName: { text: "Café Luz" },
+        photos: Array.from({ length: 12 }, (_, index) => ({
+          name: `places/ChIJtest123/photos/Photo${index}`,
+        })),
+      }),
+    );
+    const result = await getPlaceDetails("ChIJtest123", "test-key", fetcher, {
+      photoFieldsEnabled: true,
+    });
+    expect(result.photos).toHaveLength(10);
+  });
+
+  it("requests real rating and attributed reviews only after the separate opt-in", async () => {
+    expect(
+      placeReviewsEnabled({ SITE_EXPRESS_ENABLE_PLACES: "1", GOOGLE_PLACES_API_KEY: "key" }),
+    ).toBe(false);
+    const payload = {
+      id: "ChIJtest123",
+      displayName: { text: "Café Luz" },
+      rating: 4.7,
+      userRatingCount: 112,
+      reviews: [
+        {
+          rating: 5,
+          text: { text: "Atendimento excelente" },
+          authorAttribution: { displayName: "Ana", uri: "https://maps.google.com/ana" },
+          publishTime: "2026-10-21T12:00:00Z",
+          relativePublishTimeDescription: "há 3 dias",
+        },
+        { rating: 4, text: { text: "Sem autor" } },
+        {
+          rating: 5,
+          text: { text: "URL insegura" },
+          authorAttribution: { displayName: "Bia", uri: "javascript:alert(1)" },
+        },
+      ],
+    };
+    const fetcher = vi.fn().mockImplementation(async () => Response.json(payload));
+    const disabled = await getPlaceDetails("ChIJtest123", "test-key", fetcher, {
+      reviewFieldsEnabled: false,
+    });
+    expect(disabled).toMatchObject({ rating: null, userRatingCount: null, reviews: [] });
+    expect(fetcher.mock.calls[0]![1].headers["X-Goog-FieldMask"]).not.toContain("reviews");
+
+    const enabled = await getPlaceDetails("ChIJtest123", "test-key", fetcher, {
+      reviewFieldsEnabled: true,
+    });
+    expect(fetcher.mock.calls[1]![1].headers["X-Goog-FieldMask"]).toContain(
+      "rating,userRatingCount,reviews",
+    );
+    expect(enabled.rating).toBe(4.7);
+    expect(enabled.userRatingCount).toBe(112);
+    expect(enabled.reviews).toEqual([
+      {
+        rating: 5,
+        text: "Atendimento excelente",
+        author: { displayName: "Ana", uri: "https://maps.google.com/ana" },
+        publishedAt: "2026-10-21T12:00:00Z",
+        relativeTime: "há 3 dias",
+      },
+      {
+        rating: 5,
+        text: "URL insegura",
+        author: { displayName: "Bia", uri: null },
+        publishedAt: null,
+        relativeTime: null,
+      },
+    ]);
+  });
+
   it("fetches a bounded image without exposing the API key in the URL", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
@@ -160,6 +238,18 @@ describe("Google Places integration", () => {
       getPlacePhoto("https://attacker.example/photo", "test-key", fetcher),
     ).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("supports a 1200px preview only when that size is explicitly requested", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }),
+      );
+    await getPlacePhoto("places/ChIJtest123/photos/PhotoA", "test-key", fetcher, 1200);
+    expect(fetcher.mock.calls[0]![0]).toBe(
+      "https://places.googleapis.com/v1/places/ChIJtest123/photos/PhotoA/media?maxWidthPx=1200",
+    );
   });
 
   it("maps quota and malformed input to actionable errors", async () => {

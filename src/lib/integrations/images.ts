@@ -57,6 +57,16 @@ export function imageAiEnabled(
   return env.SITE_EXPRESS_ENABLE_AI_IMAGES === "1" && Boolean(env.GEMINI_API_KEY?.trim());
 }
 
+export function publicImageAiEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_AI_IMAGES?: string | undefined;
+    SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES?: string | undefined;
+    GEMINI_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return imageAiEnabled(env) && env.SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES === "1";
+}
+
 export function imageAiMessage(error: unknown): { message: string; status: number; code: string } {
   if (error instanceof AiError) {
     const messages = {

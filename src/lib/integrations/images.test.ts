@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBusinessImage, imageAiEnabled, imageAiMessage } from "./images";
+import {
+  createBusinessImage,
+  imageAiEnabled,
+  imageAiMessage,
+  publicImageAiEnabled,
+} from "./images";
 
 const original = `data:image/png;base64,${btoa("original photo")}`;
 const generated = btoa("new image");
@@ -13,6 +18,20 @@ describe("optional Gemini image generation", () => {
     expect(imageAiEnabled({ SITE_EXPRESS_ENABLE_AI_IMAGES: "1", GEMINI_API_KEY: "key" })).toBe(
       true,
     );
+    expect(
+      publicImageAiEnabled({
+        SITE_EXPRESS_ENABLE_AI_IMAGES: "1",
+        SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES: "0",
+        GEMINI_API_KEY: "key",
+      }),
+    ).toBe(false);
+    expect(
+      publicImageAiEnabled({
+        SITE_EXPRESS_ENABLE_AI_IMAGES: "1",
+        SITE_EXPRESS_ENABLE_PUBLIC_AI_IMAGES: "1",
+        GEMINI_API_KEY: "key",
+      }),
+    ).toBe(true);
   });
 
   it("sends an authorized photo with its edit request and reads image output", async () => {

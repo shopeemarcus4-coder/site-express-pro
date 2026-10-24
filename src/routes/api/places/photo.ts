@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getAuthenticatedUser } from "../../../lib/server/auth";
 import {
   getPlacePhoto,
   placePhotosEnabled,
@@ -14,15 +13,22 @@ export const Route = createFileRoute("/api/places/photo")({
     handlers: {
       GET: async ({ request }) => {
         const env = integrationEnv(request);
-        if (!(await getAuthenticatedUser(request)) && !publicPlacesEnabled(env))
-          return new Response("Entre na sua conta para ver as fotos.", { status: 401 });
+        if (!publicPlacesEnabled(env))
+          return new Response("As fotos de empresas sem conta ainda não foram ativadas.", {
+            status: 503,
+          });
         if (!placePhotosEnabled(env))
           return new Response("Fotos do Google não configuradas.", { status: 503 });
-        const name = new URL(request.url).searchParams.get("name");
+        const params = new URL(request.url).searchParams;
+        const name = params.get("name");
         const parsed = placePhotoName.safeParse(name);
         if (!parsed.success) return new Response("Foto inválida.", { status: 400 });
+        const widthParam = params.get("maxWidthPx");
+        if (widthParam !== null && widthParam !== "360" && widthParam !== "1200")
+          return new Response("Tamanho de foto inválido.", { status: 400 });
+        const width = widthParam === "1200" ? 1200 : 360;
         try {
-          const photo = await getPlacePhoto(parsed.data, env.GOOGLE_PLACES_API_KEY);
+          const photo = await getPlacePhoto(parsed.data, env.GOOGLE_PLACES_API_KEY, fetch, width);
           return new Response(photo.bytes, {
             headers: {
               "Content-Type": photo.contentType,

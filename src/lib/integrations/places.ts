@@ -4,6 +4,8 @@ const SEARCH_FIELDS = "places.id,places.displayName,places.formattedAddress,plac
 const DETAILS_FIELDS = "id,displayName,formattedAddress,location";
 const DETAILS_CONTACT_FIELDS = ",internationalPhoneNumber,websiteUri";
 const DETAILS_PHOTO_FIELDS = ",photos";
+// Reviews are a separately opted-in, higher-cost Place Details field group.
+const DETAILS_REVIEW_FIELDS = ",rating,userRatingCount,reviews";
 const GOOGLE_PLACES_BASE = "https://places.googleapis.com/v1";
 
 export const placesSearchInput = z.object({
@@ -31,11 +33,22 @@ export type PlaceBusiness = PlaceSearchResult & {
   website: string | null;
   location: { latitude: number; longitude: number } | null;
   photos: PlacePhoto[];
+  rating: number | null;
+  userRatingCount: number | null;
+  reviews: PlaceReview[];
 };
 
 export type PlacePhoto = {
   name: string;
   attributions: { displayName: string; uri: string | null }[];
+};
+
+export type PlaceReview = {
+  rating: number;
+  text: string;
+  author: { displayName: string; uri: string | null };
+  publishedAt: string | null;
+  relativeTime: string | null;
 };
 
 type Fetcher = typeof fetch;
@@ -77,6 +90,16 @@ export function publicPlacesEnabled(
   } = process.env,
 ): boolean {
   return placesEnabled(env) && env.SITE_EXPRESS_ENABLE_PUBLIC_PLACES === "1";
+}
+
+export function placeReviewsEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_PLACES?: string | undefined;
+    SITE_EXPRESS_ENABLE_PLACES_REVIEWS?: string | undefined;
+    GOOGLE_PLACES_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return placesEnabled(env) && env.SITE_EXPRESS_ENABLE_PLACES_REVIEWS === "1";
 }
 
 export const placePhotoName = z
@@ -172,17 +195,23 @@ export async function getPlaceDetails(
   placeId: string,
   key = placesEnabled() ? process.env["GOOGLE_PLACES_API_KEY"] : undefined,
   fetcher: Fetcher = fetch,
-  options: { contactFieldsEnabled?: boolean; photoFieldsEnabled?: boolean } = {},
+  options: {
+    contactFieldsEnabled?: boolean;
+    photoFieldsEnabled?: boolean;
+    reviewFieldsEnabled?: boolean;
+  } = {},
 ): Promise<PlaceBusiness> {
   const validId = placesDetailsInput.parse({ placeId }).placeId;
   const contactFieldsEnabled =
     options.contactFieldsEnabled ??
     process.env["SITE_EXPRESS_ENABLE_PLACES_CONTACT_FIELDS"] === "1";
   const photoFieldsEnabled = options.photoFieldsEnabled ?? placePhotosEnabled();
+  const reviewFieldsEnabled = options.reviewFieldsEnabled ?? placeReviewsEnabled();
   const fieldMask =
     DETAILS_FIELDS +
     (contactFieldsEnabled ? DETAILS_CONTACT_FIELDS : "") +
-    (photoFieldsEnabled ? DETAILS_PHOTO_FIELDS : "");
+    (photoFieldsEnabled ? DETAILS_PHOTO_FIELDS : "") +
+    (reviewFieldsEnabled ? DETAILS_REVIEW_FIELDS : "");
   const data = await googleRequest(
     `/places/${encodeURIComponent(validId)}`,
     requiredKey(key),
@@ -208,10 +237,56 @@ export async function getPlaceDetails(
         : null,
     photos: photoFieldsEnabled
       ? (Array.isArray(raw["photos"]) ? raw["photos"] : [])
-          .slice(0, 8)
+          .slice(0, 10)
           .map(normalizePhoto)
           .filter((photo): photo is PlacePhoto => photo !== null)
       : [],
+    rating:
+      reviewFieldsEnabled &&
+      typeof raw["rating"] === "number" &&
+      Number.isFinite(raw["rating"]) &&
+      raw["rating"] >= 1 &&
+      raw["rating"] <= 5
+        ? raw["rating"]
+        : null,
+    userRatingCount:
+      reviewFieldsEnabled &&
+      typeof raw["userRatingCount"] === "number" &&
+      Number.isInteger(raw["userRatingCount"]) &&
+      raw["userRatingCount"] >= 0
+        ? raw["userRatingCount"]
+        : null,
+    reviews: reviewFieldsEnabled
+      ? (Array.isArray(raw["reviews"]) ? raw["reviews"] : [])
+          .slice(0, 5)
+          .map(normalizeReview)
+          .filter((review): review is PlaceReview => review !== null)
+      : [],
+  };
+}
+
+function normalizeReview(value: unknown): PlaceReview | null {
+  const raw = record(value);
+  const rating = raw?.["rating"];
+  const author = record(raw?.["authorAttribution"]);
+  const displayName = string(author?.["displayName"]);
+  const text = string(record(raw?.["text"])?.["text"]);
+  if (
+    typeof rating !== "number" ||
+    !Number.isFinite(rating) ||
+    rating < 1 ||
+    rating > 5 ||
+    !displayName ||
+    !text
+  )
+    return null;
+  const uri = string(author?.["uri"]);
+  return {
+    rating,
+    text,
+    author: { displayName, uri: uri && /^https:\/\//i.test(uri) ? uri : null },
+    publishedAt: string(raw?.["publishTime"]),
+    relativeTime: string(raw?.["relativePublishTimeDescription"]),
   };
 }
 
@@ -240,11 +315,12 @@ export async function getPlacePhoto(
   name: string,
   key = placePhotosEnabled() ? process.env["GOOGLE_PLACES_API_KEY"] : undefined,
   fetcher: Fetcher = fetch,
+  width: 360 | 1200 = 360,
 ): Promise<{ bytes: ArrayBuffer; contentType: string }> {
   const validName = placePhotoName.parse(name);
   let response: Response;
   try {
-    response = await fetcher(`${GOOGLE_PLACES_BASE}/${validName}/media?maxWidthPx=360`, {
+    response = await fetcher(`${GOOGLE_PLACES_BASE}/${validName}/media?maxWidthPx=${width}`, {
       headers: { "X-Goog-Api-Key": requiredKey(key) },
       signal: AbortSignal.timeout(8_000),
     });

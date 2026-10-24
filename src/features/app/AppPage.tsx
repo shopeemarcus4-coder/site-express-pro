@@ -1,31 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   Copy,
   CircleAlert,
-  FileText,
-  LayoutTemplate,
   LoaderCircle,
-  LogOut,
-  MoonStar,
-  Plus,
   Search,
-  ShoppingBag,
   Sparkles,
-  Stethoscope,
   Trash2,
-  UtensilsCrossed,
   X,
 } from "lucide-react";
-import {
-  ContractsPage,
-  contractsStateFromWorkspace,
-  mergeContractsStateIntoWorkspace,
-} from "../contracts";
 import { createSiteProject, slugify } from "../studio/presets";
 import { StudioPage } from "../studio/StudioPage";
+import { optimizeImage } from "../studio/optimizeImage";
 import type { SiteArchetype, SiteProject } from "../studio/types";
 import {
   DEMO_STORAGE_KEY,
@@ -39,16 +26,15 @@ import {
   placeDetailsDraft,
   placePhotoUrl,
   placeTemplate,
+  type ImportedPlaceDetails,
   type PlacePhoto,
   type PlaceSearchResult,
 } from "./places";
 import "../../styles/app.css";
 import { Logo } from "../../components/site/Logo";
 
-type Mode = "loading" | "choose" | "local" | "account";
-type View = "dashboard" | "studio" | "contracts";
-type SaveStatus = "saved" | "pending" | "saving" | "error";
-type User = { id: string; organizationId: string; name: string; email: string };
+type View = "dashboard" | "studio";
+type SaveStatus = "saved" | "error";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   try {
@@ -69,21 +55,19 @@ const archetypeLabels: Record<SiteArchetype, string> = {
 };
 
 export function AppPage() {
-  const [mode, setMode] = useState<Mode>("loading");
+  const [ready, setReady] = useState(false);
   const [view, setView] = useState<View>("dashboard");
-  const [user, setUser] = useState<User | null>(null);
   const [workspace, setWorkspace] = useState<AppWorkspace>(emptyWorkspace);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [message, setMessage] = useState("");
-  const [authTab, setAuthTab] = useState<"register" | "login">("register");
-  const [authBusy, setAuthBusy] = useState(false);
-  const [authForm, setAuthForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    organizationName: "",
-  });
+  const [placesAvailability, setPlacesAvailability] = useState<{
+    configured: boolean;
+    availableWithoutAccount: boolean;
+    photosEnabled: boolean;
+    reviewsEnabled: boolean;
+    contactFieldsEnabled: boolean;
+  } | null>(null);
   const [newSite, setNewSite] = useState({
     name: "",
     category: "",
@@ -100,24 +84,30 @@ export function AppPage() {
   const [placesBusy, setPlacesBusy] = useState(false);
   const [placesMessage, setPlacesMessage] = useState("");
   const [placePhotos, setPlacePhotos] = useState<PlacePhoto[]>([]);
+  const [placeDetails, setPlaceDetails] = useState<ImportedPlaceDetails | null>(null);
+  const [detailsBusy, setDetailsBusy] = useState(false);
   const [selectedPhotoName, setSelectedPhotoName] = useState<string | null>(null);
   const [photoReference, setPhotoReference] = useState<{
     siteId: string;
     photo: PlacePhoto;
   } | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [actionBusy, setActionBusy] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const versionRef = useRef(0);
-  const pendingRef = useRef<AppWorkspace | null>(null);
-  const savePromiseRef = useRef<Promise<boolean> | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placeSelectionRef = useRef(0);
   const placeSearchRef = useRef(0);
   const placeSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placeSearchAbortRef = useRef<AbortController | null>(null);
   const placeSearchCacheRef = useRef(new Map<string, PlaceSearchResult[]>());
   const createDialogRef = useRef<HTMLDivElement>(null);
+  const closeCreate = useCallback(() => {
+    setShowCreate(false);
+    setCoverFile(null);
+    setCoverError("");
+    setDetailsBusy(false);
+  }, []);
 
   useEffect(() => {
     if (!showCreate) return;
@@ -126,7 +116,7 @@ export function AppPage() {
     document.body.style.overflow = "hidden";
     createDialogRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowCreate(false);
+      if (event.key === "Escape") closeCreate();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -134,229 +124,61 @@ export function AppPage() {
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [showCreate]);
+  }, [showCreate, closeCreate]);
 
   function editNewSite(changes: Partial<typeof newSite>) {
     // A late details response must not replace a field the user has already edited.
     placeSelectionRef.current += 1;
     if (changes.name !== undefined) {
       setPlacePhotos([]);
+      setPlaceDetails(null);
+      setDetailsBusy(false);
       setSelectedPhotoName(null);
     }
     setNewSite((current) => ({ ...current, ...changes }));
   }
 
-  const loadAccountWorkspace = useCallback(async (nextUser: User) => {
-    const response = await fetch("/api/workspace", { credentials: "same-origin" });
-    const body = await responseBody(response);
-    if (!response.ok)
-      throw new Error(
-        errorText(body, "O banco de dados da conta ainda não está disponível nesta hospedagem."),
-      );
-    versionRef.current = Number(body["version"] ?? 0);
-    setWorkspace(body["workspace"] as AppWorkspace);
-    setUser(nextUser);
-    setMode("account");
-    setSaveStatus("saved");
-  }, []);
-
   useEffect(() => {
-    let active = true;
-    fetch("/api/auth/session", { credentials: "same-origin" })
-      .then(async (response) => {
-        if (!active) return;
-        if (!response.ok) {
-          setMode("choose");
-          return;
-        }
-        const body = await responseBody(response);
-        if (body["user"]) await loadAccountWorkspace(body["user"] as User);
-        else setMode("choose");
+    setWorkspace(loadLocalWorkspace());
+    setReady(true);
+    const controller = new AbortController();
+    fetch("/api/places/search", { signal: controller.signal })
+      .then(async (response) => (response.ok ? responseBody(response) : null))
+      .then((body) => {
+        if (controller.signal.aborted || !body) return;
+        setPlacesAvailability({
+          configured: body["configured"] === true,
+          availableWithoutAccount: body["availableWithoutAccount"] === true,
+          photosEnabled: body["photosEnabled"] === true,
+          reviewsEnabled: body["reviewsEnabled"] === true,
+          contactFieldsEnabled: body["contactFieldsEnabled"] === true,
+        });
       })
-      .catch(() => {
-        if (active) setMode("choose");
-      });
-    return () => {
-      active = false;
-    };
-  }, [loadAccountWorkspace]);
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
-  const saveSnapshot = useCallback(async (snapshot: AppWorkspace): Promise<boolean> => {
+  const updateWorkspace = useCallback((next: AppWorkspace) => {
+    setWorkspace(next);
     try {
-      const response = await fetch("/api/workspace", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseVersion: versionRef.current, workspace: snapshot }),
-      });
-      const body = await responseBody(response);
-      if (!response.ok)
-        throw new Error(
-          errorText(
-            body,
-            response.status === 409
-              ? "Os dados foram alterados em outra aba. Recarregue antes de continuar."
-              : "Não foi possível salvar sua conta.",
-          ),
-        );
-      versionRef.current = Number(body["version"] ?? versionRef.current + 1);
-      return true;
-    } catch (reason) {
+      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(next));
+      setSaveStatus("saved");
+    } catch {
       setSaveStatus("error");
-      setMessage(
-        reason instanceof Error ? reason.message : "Não foi possível salvar. Confira sua conexão.",
-      );
-      return false;
+      setMessage("O navegador ficou sem espaço. Exporte o site antes de sair desta página.");
     }
   }, []);
 
-  const flushSave = useCallback(async (): Promise<boolean> => {
-    if (savePromiseRef.current) {
-      const success = await savePromiseRef.current;
-      if (!success) return false;
-    }
-    const snapshot = pendingRef.current;
-    if (!snapshot) return true;
-    pendingRef.current = null;
-    setSaveStatus("saving");
-    const operation = saveSnapshot(snapshot);
-    savePromiseRef.current = operation;
-    const success = await operation;
-    savePromiseRef.current = null;
-    if (!success) {
-      pendingRef.current ??= snapshot;
-      return false;
-    }
-    if (pendingRef.current) return flushSave();
-    setSaveStatus("saved");
-    return true;
-  }, [saveSnapshot]);
-
-  const updateWorkspace = useCallback(
-    (next: AppWorkspace) => {
-      setWorkspace(next);
-      if (mode === "local") {
-        try {
-          localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(next));
-          setSaveStatus("saved");
-        } catch {
-          setSaveStatus("error");
-          setMessage("O navegador ficou sem espaço. Exporte o site antes de sair desta página.");
-        }
-        return;
-      }
-      if (mode === "account") {
-        pendingRef.current = next;
-        setSaveStatus("pending");
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-          void flushSave();
-        }, 700);
-      }
-    },
-    [mode, flushSave],
-  );
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  function enterLocal() {
-    setWorkspace(loadLocalWorkspace());
-    setMode("local");
-    setView("dashboard");
-    setMessage("");
-  }
-
-  async function submitAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAuthBusy(true);
-    setMessage("");
-    try {
-      const payload =
-        authTab === "register"
-          ? {
-              name: authForm.name.trim(),
-              email: authForm.email.trim(),
-              password: authForm.password,
-              organizationName: authForm.organizationName.trim() || authForm.name.trim(),
-            }
-          : { email: authForm.email.trim(), password: authForm.password };
-      const response = await fetch(`/api/auth/${authTab}`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await responseBody(response);
-      if (!response.ok)
-        throw new Error(
-          errorText(
-            body,
-            "A conta não está disponível agora. Você pode continuar neste navegador.",
-          ),
-        );
-      await loadAccountWorkspace(body["user"] as User);
-      setAuthForm((current) => ({ ...current, password: "" }));
-    } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : "Não foi possível entrar.");
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
-  async function logout() {
-    if (saveStatus === "pending" || saveStatus === "saving" || saveStatus === "error") {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (!(await flushSave())) return;
-    }
-    try {
-      const response = await fetch("/api/auth/session", {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
-      if (!response.ok) {
-        const body = await responseBody(response);
-        throw new Error(errorText(body, "Não foi possível encerrar a sessão. Tente novamente."));
-      }
-    } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : "Não foi possível encerrar a sessão.");
-      return;
-    }
-    setUser(null);
-    setWorkspace(emptyWorkspace());
-    setSelectedId(null);
-    setView("dashboard");
-    setMode("choose");
-  }
-
-  async function deleteSite(site: SiteRecord) {
-    const next: AppWorkspace = {
+  function deleteSite(site: SiteRecord) {
+    updateWorkspace({
       ...workspace,
       sites: workspace.sites.filter((entry) => entry.id !== site.id),
       contracts: workspace.contracts.map((contract) =>
         contract["siteId"] === site.id ? { ...contract, siteId: null } : contract,
       ),
-    };
-    if (mode === "account") {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setActionBusy(true);
-      if (!(await flushSave()) || !(await saveSnapshot(next))) {
-        setActionBusy(false);
-        return;
-      }
-      setActionBusy(false);
-    }
-    if (mode === "local") updateWorkspace(next);
-    else {
-      setWorkspace(next);
-      setSaveStatus("saved");
-    }
+    });
     setDeleteConfirmId(null);
-    setMessage(`Projeto “${site.title}” excluído. Os contratos relacionados foram preservados.`);
+    setMessage(`Projeto “${site.title}” excluído deste navegador.`);
   }
 
   function duplicateSite(site: SiteRecord) {
@@ -395,8 +217,9 @@ export function AppPage() {
     setMessage(`Cópia de “${site.title}” criada como rascunho.`);
   }
 
-  function createSite(event: FormEvent<HTMLFormElement>) {
+  async function createSite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (coverBusy) return;
     const name = newSite.name.trim();
     if (!name) {
       setMessage("Informe o nome do negócio para criar o site.");
@@ -409,8 +232,20 @@ export function AppPage() {
       address: newSite.address.trim(),
       mapsUrl: newSite.mapsUrl.trim(),
       archetype: newSite.archetype,
-      isDemo: mode === "local",
+      isDemo: false,
     });
+    if (coverFile) {
+      setCoverBusy(true);
+      try {
+        project.appearance.heroImage = await optimizeImage(coverFile, 1600);
+        project.appearance.heroImageAlt = `Foto enviada para ${name}`;
+      } catch (error) {
+        setCoverError(error instanceof Error ? error.message : "Não foi possível usar esta foto.");
+        setCoverBusy(false);
+        return;
+      }
+      setCoverBusy(false);
+    }
     project.slug = uniqueSlug(slugify(name), workspace.sites);
     const site: SiteRecord = {
       id: project.id,
@@ -420,6 +255,7 @@ export function AppPage() {
       businessId: project.id,
       publicData: project,
     };
+    setMessage("");
     updateWorkspace({
       ...workspace,
       businesses: [
@@ -440,12 +276,17 @@ export function AppPage() {
     setSelectedId(project.id);
     setView("studio");
     setShowCreate(false);
-    setMessage("");
     placeSelectionRef.current += 1;
     const chosenPhoto = placePhotos.find((photo) => photo.name === selectedPhotoName);
-    setPhotoReference(chosenPhoto ? { siteId: project.id, photo: chosenPhoto } : null);
+    setPhotoReference(
+      !coverFile && chosenPhoto ? { siteId: project.id, photo: chosenPhoto } : null,
+    );
     setPlacePhotos([]);
+    setPlaceDetails(null);
+    setDetailsBusy(false);
     setSelectedPhotoName(null);
+    setCoverFile(null);
+    setCoverError("");
     setNewSite({
       name: "",
       category: "",
@@ -475,45 +316,6 @@ export function AppPage() {
         : business,
     );
     updateWorkspace({ ...workspace, sites, businesses });
-  }
-
-  async function setPublication(site: SiteRecord, status: "published" | "suspended") {
-    if (mode !== "account" || !site.publicData) return;
-    if (status === "published") {
-      const contact = site.publicData.business;
-      const hasPhone = contact.whatsapp.replace(/\D/g, "").length >= 10;
-      const hasAddress = Boolean(contact.address.trim());
-      const hasMap = /^https?:\/\//i.test(contact.mapsUrl);
-      if (!hasPhone && !hasAddress && !hasMap) {
-        setMessage(
-          "Adicione ao menos um contato válido (WhatsApp, endereço ou mapa) antes de publicar.",
-        );
-        return;
-      }
-    }
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setActionBusy(true);
-    setMessage("");
-    try {
-      if (!(await flushSave())) return;
-      const next = {
-        ...workspace,
-        sites: workspace.sites.map((entry) =>
-          entry.id === site.id ? { ...entry, status } : entry,
-        ),
-      };
-      setSaveStatus("saving");
-      if (!(await saveSnapshot(next))) return;
-      setWorkspace(next);
-      setSaveStatus("saved");
-      setMessage(
-        status === "published"
-          ? "Site publicado. Abra o link para conferir a versão pública."
-          : "Publicação suspensa.",
-      );
-    } finally {
-      setActionBusy(false);
-    }
   }
 
   const runPlacesSearch = useCallback(async (query: string, signal?: AbortSignal) => {
@@ -586,7 +388,7 @@ export function AppPage() {
   }
 
   useEffect(() => {
-    if ((mode !== "local" && mode !== "account") || showCreate) return;
+    if (!ready || showCreate || placesAvailability?.availableWithoutAccount === false) return;
     if (placeQuery.trim().length < 4) {
       setPlaceResults([]);
       setPlacesMessage("");
@@ -601,7 +403,7 @@ export function AppPage() {
       if (placeSearchTimerRef.current) clearTimeout(placeSearchTimerRef.current);
       controller.abort();
     };
-  }, [mode, placeQuery, runPlacesSearch, showCreate]);
+  }, [ready, placeQuery, runPlacesSearch, showCreate, placesAvailability]);
 
   async function selectPlace(place: PlaceSearchResult) {
     const requestId = ++placeSelectionRef.current;
@@ -610,6 +412,8 @@ export function AppPage() {
     setPlacesBusy(false);
     const template = placeTemplate(place.category);
     setPlacePhotos([]);
+    setPlaceDetails(null);
+    setDetailsBusy(true);
     setSelectedPhotoName(null);
     setNewSite((current) => ({
       ...current,
@@ -647,12 +451,15 @@ export function AppPage() {
         mapsUrl: details.mapsUrl,
       }));
       setPlacePhotos(details.photos);
+      setPlaceDetails(details);
       setSelectedPhotoName(details.photos[0]?.name ?? null);
     } catch {
       if (placeSelectionRef.current === requestId)
         setPlacesMessage(
           "Os detalhes da empresa não foram carregados. Confira os campos manualmente.",
         );
+    } finally {
+      if (placeSelectionRef.current === requestId) setDetailsBusy(false);
     }
   }
 
@@ -666,7 +473,7 @@ export function AppPage() {
           .includes(siteQuery.toLocaleLowerCase("pt-BR"))),
   );
 
-  if (mode === "loading")
+  if (!ready)
     return (
       <main className="sx-app-loading">
         <LoaderCircle className="sx-spin" />
@@ -674,246 +481,21 @@ export function AppPage() {
       </main>
     );
 
-  if (mode === "choose")
-    return (
-      <main className="sx-app-auth">
-        <div className="sx-app-auth__top">
-          <a href="/" className="sx-app-brand">
-            <Logo />
-          </a>
-          <a href="/" className="sx-app-back">
-            <ArrowLeft size={16} /> Voltar ao início
-          </a>
-        </div>
-        <div className="sx-app-auth__layout">
-          <section className="sx-app-auth__intro">
-            <span className="sx-app-kicker">SEU ESPAÇO CRIATIVO</span>
-            <h1>Do primeiro nome à página pronta.</h1>
-            <p>
-              Escolha um modelo, ajuste os detalhes e exporte seu site. Você pode começar agora
-              mesmo neste navegador.
-            </p>
-            <form
-              className="sx-app-search-home__form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                enterLocal();
-              }}
-            >
-              <Search size={20} aria-hidden="true" />
-              <input
-                aria-label="Buscar empresa no Google"
-                value={placeQuery}
-                onChange={(event) => changePlaceQuery(event.target.value)}
-                placeholder="Nome da empresa e cidade"
-                minLength={2}
-                required
-              />
-              <button type="submit" disabled={placesBusy}>
-                Buscar empresa <ArrowRight size={16} />
-              </button>
-            </form>
-            <small>
-              Se a busca externa ainda não estiver ativa, você poderá criar o site manualmente.
-            </small>
-            <div className="sx-app-auth__highlights">
-              <span>
-                <Check size={17} /> Editor visual
-              </span>
-              <span>
-                <Check size={17} /> Modelos flexíveis
-              </span>
-              <span>
-                <Check size={17} /> Exportação HTML
-              </span>
-            </div>
-          </section>
-          <section className="sx-app-auth__card">
-            <div className="sx-app-auth__tabs">
-              <button
-                type="button"
-                className={authTab === "register" ? "is-active" : ""}
-                onClick={() => setAuthTab("register")}
-              >
-                Criar conta
-              </button>
-              <button
-                type="button"
-                className={authTab === "login" ? "is-active" : ""}
-                onClick={() => setAuthTab("login")}
-              >
-                Entrar
-              </button>
-            </div>
-            <form onSubmit={submitAuth}>
-              {authTab === "register" && (
-                <>
-                  <label>
-                    Seu nome
-                    <input
-                      value={authForm.name}
-                      onChange={(event) => setAuthForm({ ...authForm, name: event.target.value })}
-                      required
-                      minLength={2}
-                      autoComplete="name"
-                    />
-                  </label>
-                  <label>
-                    Nome do espaço de trabalho
-                    <input
-                      value={authForm.organizationName}
-                      onChange={(event) =>
-                        setAuthForm({ ...authForm, organizationName: event.target.value })
-                      }
-                      placeholder="Ex.: Minha agência"
-                    />
-                  </label>
-                </>
-              )}
-              <label>
-                E-mail
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                  required
-                  autoComplete="email"
-                />
-              </label>
-              <label>
-                Senha
-                <input
-                  type="password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                  required
-                  minLength={authTab === "register" ? 8 : 1}
-                  autoComplete={authTab === "register" ? "new-password" : "current-password"}
-                />
-              </label>
-              {authTab === "register" && (
-                <small>Use pelo menos 8 caracteres e evite senhas comuns.</small>
-              )}
-              <button className="sx-app-primary" disabled={authBusy}>
-                {authBusy
-                  ? "Aguarde…"
-                  : authTab === "register"
-                    ? "Criar meu espaço"
-                    : "Entrar no meu espaço"}
-                <ArrowRight size={17} />
-              </button>
-            </form>
-            {message && (
-              <p className="sx-app-alert" role="alert">
-                <CircleAlert size={17} />
-                {message}
-              </p>
-            )}
-            <div className="sx-app-auth__divider">
-              <span>ou</span>
-            </div>
-            <button
-              type="button"
-              className="sx-app-secondary sx-app-auth__local"
-              onClick={enterLocal}
-            >
-              Continuar neste navegador <ArrowRight size={17} />
-            </button>
-            <p className="sx-app-auth__note">
-              Neste navegador, os rascunhos ficam salvos apenas aqui. Para usar uma conta em vários
-              dispositivos, a hospedagem precisa ter banco de dados configurado.
-            </p>
-          </section>
-        </div>
-      </main>
-    );
-
   return (
     <main className="sx-app">
-      <aside className="sx-app-sidebar">
-        <button
-          type="button"
-          className="sx-app-brand"
-          aria-label="Novo Site"
-          onClick={() => {
-            setView("dashboard");
-            setShowCreate(false);
-          }}
-        >
-          <Logo />
-        </button>
-        <nav aria-label="Navegação do aplicativo">
-          <button
-            type="button"
-            className={view === "dashboard" ? "is-active" : ""}
-            onClick={() => {
-              setView("dashboard");
-              setShowCreate(false);
-            }}
-          >
-            <Plus size={18} /> Novo Site
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setView("dashboard");
-              document.getElementById("sx-projects")?.scrollIntoView({ behavior: "smooth" });
-            }}
-          >
-            <LayoutTemplate size={18} /> Meus Clientes
-          </button>
-          <button
-            type="button"
-            className={view === "contracts" ? "is-active" : ""}
-            onClick={() => setView("contracts")}
-          >
-            <FileText size={18} /> Contratos
-          </button>
-        </nav>
-        <div className="sx-app-sidebar__bottom">
-          <p>{mode === "local" ? "Espaço local" : user?.name}</p>
-          <small>{mode === "local" ? "Salvo neste navegador" : user?.email}</small>
-          <button
-            type="button"
-            onClick={() =>
-              mode === "local" ? (setMode("choose"), setView("dashboard")) : void logout()
-            }
-          >
-            <LogOut size={16} /> {mode === "local" ? "Sair deste espaço" : "Sair da conta"}
-          </button>
-        </div>
-      </aside>
       <div className={view === "studio" ? "sx-app-main sx-app-main--studio" : "sx-app-main"}>
         {view !== "studio" && (
           <header className="sx-app-header">
             <div>
-              <span className="sx-app-kicker">
-                SITE EXPRESS / {view === "contracts" ? "CONTRATOS" : "PROJETOS"}
-              </span>
-              <h1>{view === "contracts" ? "Clientes e contratos" : "Novo Site"}</h1>
+              <a href="/" className="sx-app-brand" aria-label="Site Express — início">
+                <Logo />
+              </a>
             </div>
             <div className="sx-app-header__actions">
               <span className={`sx-app-save sx-app-save--${saveStatus}`} aria-live="polite">
-                {saveStatus === "saved" ? (
-                  <Check size={15} />
-                ) : saveStatus === "error" ? (
-                  <CircleAlert size={15} />
-                ) : (
-                  <LoaderCircle size={15} className="sx-spin" />
-                )}
-                {saveStatus === "saved"
-                  ? "Salvo"
-                  : saveStatus === "pending"
-                    ? "Alterações pendentes"
-                    : saveStatus === "saving"
-                      ? "Salvando"
-                      : "Falha ao salvar"}
+                {saveStatus === "saved" ? <Check size={15} /> : <CircleAlert size={15} />}
+                {saveStatus === "saved" ? "Salvo neste navegador" : "Falha ao salvar"}
               </span>
-              {mode === "account" && saveStatus === "error" && (
-                <button type="button" className="sx-app-secondary" onClick={() => void flushSave()}>
-                  Tentar salvar
-                </button>
-              )}
             </div>
           </header>
         )}
@@ -926,25 +508,14 @@ export function AppPage() {
             </button>
           </div>
         )}
-        {mode === "local" && view !== "studio" && (
-          <div className="sx-app-local-note">
-            <MoonStar size={17} /> Modo local: seus sites e contratos ficam somente neste navegador.
-            Exporte o HTML no editor para guardar uma cópia.
-          </div>
-        )}
-        {view === "contracts" ? (
-          <ContractsPage
-            value={contractsStateFromWorkspace(workspace)}
-            onChange={(next) => updateWorkspace(mergeContractsStateIntoWorkspace(workspace, next))}
-            onBack={() => setView("dashboard")}
-          />
-        ) : view === "studio" && activeSite?.publicData ? (
+        {view === "studio" && activeSite?.publicData ? (
           <StudioPage
             key={activeSite.id}
             project={activeSite.publicData}
             onChange={editProject}
             onBack={() => setView("dashboard")}
-            enableAiTools={mode === "account"}
+            enableAiTools={false}
+            enableImageTools
             photoReference={
               photoReference?.siteId === activeSite.id
                 ? placePhotoUrl(photoReference.photo.name)
@@ -952,37 +523,18 @@ export function AppPage() {
             }
             publicationStatus={activeSite.status}
             saveStatus={saveStatus}
-            onSave={() => void flushSave()}
-            onPublish={
-              mode === "account"
-                ? () =>
-                    void setPublication(
-                      activeSite,
-                      activeSite.status === "published" ? "suspended" : "published",
-                    )
-                : undefined
-            }
-            publishDisabled={actionBusy || saveStatus === "error"}
-            publicSiteHref={
-              activeSite.status === "published" && saveStatus === "saved"
-                ? `/site/${activeSite.slug}`
-                : undefined
-            }
           />
         ) : (
           <>
             <section className="sx-app-search-home">
-              <span className="sx-app-search-home__badge">
-                <span /> {mode === "account" ? "BUSCA DE EMPRESAS" : "CRIAÇÃO NO SEU NAVEGADOR"}
-              </span>
-              <h2>
+              <h1>
                 Digite a empresa.
                 <br />
                 Receba o <em>site pronto.</em>
-              </h2>
+              </h1>
               <p>
                 Encontre os dados do negócio, confira as informações e crie uma página pronta para
-                personalizar, publicar ou exportar.
+                personalizar e exportar.
               </p>
               <form
                 className="sx-app-search-home__form"
@@ -996,8 +548,12 @@ export function AppPage() {
                   placeholder="Nome da empresa e cidade"
                   minLength={2}
                   required
+                  disabled={placesAvailability?.availableWithoutAccount === false}
                 />
-                <button type="submit" disabled={placesBusy}>
+                <button
+                  type="submit"
+                  disabled={placesBusy || placesAvailability?.availableWithoutAccount === false}
+                >
                   {placesBusy ? "Buscando…" : "Buscar empresa"} <ArrowRight size={17} />
                 </button>
               </form>
@@ -1006,9 +562,15 @@ export function AppPage() {
                 className="sx-app-search-home__manual"
                 onClick={() => setShowCreate(true)}
               >
-                {mode === "local" ? "Criar site agora" : "Criar com dados manuais"}{" "}
-                <ArrowRight size={14} />
+                Criar sem buscar <ArrowRight size={14} />
               </button>
+              {placesAvailability?.availableWithoutAccount === false && (
+                <p className="sx-app-search-home__message" role="status">
+                  {placesAvailability.configured
+                    ? "A busca do Google está desativada para uso sem conta nesta hospedagem. Você pode começar com os dados da empresa e importar as fotos autorizadas no editor."
+                    : "A busca do Google ainda não foi configurada nesta hospedagem. Você pode começar com os dados da empresa e importar as fotos autorizadas no editor."}
+                </p>
+              )}
               {placesMessage && (
                 <p className="sx-app-search-home__message" role="status">
                   {placesMessage}
@@ -1033,31 +595,12 @@ export function AppPage() {
                   ))}
                 </div>
               )}
-              <div className="sx-app-search-home__features">
-                <article>
-                  <UtensilsCrossed size={20} />
-                  <strong>Gastronomia artesanal</strong>
-                  <span>Cardápio, galeria e pedido direto.</span>
-                </article>
-                <article>
-                  <Stethoscope size={20} />
-                  <strong>Serviços & autoridade</strong>
-                  <span>Especialidades, história e contato.</span>
-                </article>
-                <article>
-                  <ShoppingBag size={20} />
-                  <strong>Produtos & vitrine</strong>
-                  <span>Catálogo visual e conversão.</span>
-                </article>
-              </div>
             </section>
             <section className="sx-app-projects" id="sx-projects">
               <div className="sx-app-section-heading">
                 <div>
-                  <span className="sx-app-kicker">MEUS CLIENTES</span>
                   <h2>
-                    Sites gerados{" "}
-                    <em>{workspace.sites.filter((site) => site.publicData).length}</em>
+                    Meus sites <em>{workspace.sites.filter((site) => site.publicData).length}</em>
                   </h2>
                 </div>
                 <label className="sx-app-search">
@@ -1074,7 +617,7 @@ export function AppPage() {
                 <div
                   className="sx-app-create-overlay"
                   onMouseDown={(event) => {
-                    if (event.target === event.currentTarget) setShowCreate(false);
+                    if (event.target === event.currentTarget) closeCreate();
                   }}
                 >
                   <div
@@ -1089,7 +632,7 @@ export function AppPage() {
                       type="button"
                       className="sx-app-create__close"
                       aria-label="Fechar"
-                      onClick={() => setShowCreate(false)}
+                      onClick={closeCreate}
                     >
                       <X size={20} />
                     </button>
@@ -1102,6 +645,83 @@ export function AppPage() {
                       </h3>
                       <p>Confirme o essencial agora. Você pode completar o resto no editor.</p>
                     </div>
+                    {detailsBusy && <p role="status">Carregando dados e fotos da empresa…</p>}
+                    {placeDetails && (
+                      <section
+                        className="sx-app-place-summary"
+                        aria-label="Informações encontradas no Google"
+                      >
+                        <div>
+                          <strong>{placeDetails.name}</strong>
+                          <span>{placeDetails.address}</span>
+                          {placeDetails.phone && <span>{placeDetails.phone}</span>}
+                          {placeDetails.website && (
+                            <a href={placeDetails.website} target="_blank" rel="noreferrer">
+                              Site da empresa
+                            </a>
+                          )}
+                        </div>
+                        {placeDetails.rating !== null && (
+                          <p className="sx-app-place-summary__rating">
+                            <strong>
+                              {placeDetails.rating.toLocaleString("pt-BR", {
+                                maximumFractionDigits: 1,
+                              })}{" "}
+                              ★
+                            </strong>
+                            {placeDetails.userRatingCount !== null && (
+                              <span>
+                                {placeDetails.userRatingCount.toLocaleString("pt-BR")} avaliações no
+                                Google
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {placeDetails.reviews.length > 0 && (
+                          <details className="sx-app-place-reviews">
+                            <summary>
+                              Ver avaliações retornadas pelo Google ({placeDetails.reviews.length})
+                            </summary>
+                            <div>
+                              {placeDetails.reviews.map((review, index) => (
+                                <blockquote key={`${review.author.displayName}-${index}`}>
+                                  <p>“{review.text}”</p>
+                                  <footer>
+                                    <span>{review.rating} ★</span>
+                                    {review.author.uri ? (
+                                      <a href={review.author.uri} target="_blank" rel="noreferrer">
+                                        {review.author.displayName}
+                                      </a>
+                                    ) : (
+                                      review.author.displayName
+                                    )}
+                                    {review.relativeTime && <span>{review.relativeTime}</span>}
+                                  </footer>
+                                </blockquote>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        <small>
+                          Avaliações são referências do Google e não entram automaticamente no site
+                          gerado.
+                        </small>
+                        {!placesAvailability?.reviewsEnabled && (
+                          <small>
+                            A importação de avaliações ainda não foi ativada nesta hospedagem.
+                          </small>
+                        )}
+                        {placesAvailability?.reviewsEnabled &&
+                          placeDetails.reviews.length === 0 && (
+                            <small>O Google não retornou avaliações nesta consulta.</small>
+                          )}
+                        {!placesAvailability?.contactFieldsEnabled && (
+                          <small>
+                            Telefone e site comercial exigem ativação separada nesta hospedagem.
+                          </small>
+                        )}
+                      </section>
+                    )}
                     {placePhotos.length > 0 && (
                       <section
                         className="sx-app-place-photos"
@@ -1109,8 +729,20 @@ export function AppPage() {
                       >
                         <div className="sx-app-place-photos__heading">
                           <strong>Fotos encontradas no Google</strong>
-                          <span>Selecione uma referência para a capa</span>
+                          <span>
+                            {placePhotos.length} foto(s) retornada(s) · até 10 disponíveis nesta
+                            consulta
+                          </span>
                         </div>
+                        {selectedPhotoName && (
+                          <figure className="sx-app-place-photos__selected">
+                            <img
+                              src={placePhotoUrl(selectedPhotoName, 1200)}
+                              alt="Foto selecionada da empresa no Google"
+                            />
+                            <figcaption>Referência selecionada para a capa</figcaption>
+                          </figure>
+                        )}
                         <div className="sx-app-place-photos__grid">
                           {placePhotos.map((photo, index) => (
                             <div key={photo.name} className="sx-app-place-photos__item">
@@ -1157,6 +789,13 @@ export function AppPage() {
                           capa, envie uma imagem que você pode usar na aba Marca do editor.
                         </small>
                       </section>
+                    )}
+                    {placeDetails && placePhotos.length === 0 && (
+                      <p className="sx-app-place-photos__empty">
+                        {placesAvailability?.photosEnabled
+                          ? "O Google não retornou fotos nesta consulta. Você pode enviar uma foto autorizada abaixo."
+                          : "A importação de fotos ainda não foi ativada nesta hospedagem. Você pode enviar uma foto autorizada abaixo."}
+                      </p>
                     )}
                     <form className="sx-app-create__form" onSubmit={createSite}>
                       <label>
@@ -1235,19 +874,49 @@ export function AppPage() {
                           />
                         </label>
                       </details>
+                      <label className="sx-app-create__photo-upload">
+                        Foto própria ou autorizada para a capa (opcional)
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => {
+                            const file = event.currentTarget.files?.[0] ?? null;
+                            setCoverError("");
+                            if (
+                              file &&
+                              (!/^image\/(jpeg|png|webp)$/.test(file.type) ||
+                                file.size > 10 * 1024 * 1024)
+                            ) {
+                              setCoverFile(null);
+                              setCoverError("Envie uma foto JPG, PNG ou WebP de até 10 MB.");
+                              return;
+                            }
+                            setCoverFile(file);
+                          }}
+                        />
+                      </label>
+                      {coverError && (
+                        <p className="sx-app-create__error" role="alert">
+                          {coverError}
+                        </p>
+                      )}
                       <div className="sx-app-create__actions">
                         <button
                           type="button"
                           className="sx-app-secondary"
                           onClick={() => {
                             placeSelectionRef.current += 1;
-                            setShowCreate(false);
+                            closeCreate();
                           }}
                         >
                           Cancelar
                         </button>
-                        <button type="submit" className="sx-app-primary">
-                          Criar site <ArrowRight size={17} />
+                        <button
+                          type="submit"
+                          className="sx-app-primary"
+                          disabled={coverBusy || Boolean(coverError)}
+                        >
+                          {coverBusy ? "Preparando foto…" : "Criar site"} <ArrowRight size={17} />
                         </button>
                       </div>
                     </form>
@@ -1307,38 +976,13 @@ export function AppPage() {
                             <Trash2 size={16} />
                           </button>
                         </div>
-                        {mode === "account" && (
-                          <button
-                            type="button"
-                            className="sx-app-site-card__publish"
-                            disabled={actionBusy || saveStatus === "error"}
-                            onClick={() =>
-                              void setPublication(
-                                site,
-                                site.status === "published" ? "suspended" : "published",
-                              )
-                            }
-                          >
-                            <span
-                              className={site.status === "published" ? "is-on" : ""}
-                              aria-hidden="true"
-                            />
-                            {site.status === "published"
-                              ? "No ar · suspender"
-                              : "Fora do ar · publicar"}
-                          </button>
-                        )}
                         {deleteConfirmId === site.id && (
                           <div className="sx-app-site-card__confirm">
-                            <p>Excluir este projeto? Contratos existentes serão preservados.</p>
+                            <p>Excluir este projeto deste navegador?</p>
                             <button type="button" onClick={() => setDeleteConfirmId(null)}>
                               Cancelar
                             </button>
-                            <button
-                              type="button"
-                              disabled={actionBusy}
-                              onClick={() => void deleteSite(site)}
-                            >
+                            <button type="button" onClick={() => deleteSite(site)}>
                               Excluir projeto
                             </button>
                           </div>

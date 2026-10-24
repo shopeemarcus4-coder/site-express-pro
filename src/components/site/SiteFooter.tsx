@@ -25,11 +25,6 @@ export function SiteFooter() {
                 Modelos
               </Link>
             </li>
-            <li>
-              <Link to="/precos" className="hover:text-foreground text-foreground/80">
-                Preços
-              </Link>
-            </li>
           </ul>
         </div>
         <div>

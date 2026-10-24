@@ -14,7 +14,6 @@ import { Route as AjudaRouteImport } from './routes/ajuda'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ComoFuncionaRouteImport } from './routes/como-funciona'
 import { Route as ModelosRouteImport } from './routes/modelos'
-import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
 import { Route as SiteSlugRouteImport } from './routes/site/$slug'
 import { Route as ApiAiImageRouteImport } from './routes/api/ai/image'
@@ -50,11 +49,6 @@ const ComoFuncionaRoute = ComoFuncionaRouteImport.update({
 const ModelosRoute = ModelosRouteImport.update({
   id: '/modelos',
   path: '/modelos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrecosRoute = PrecosRouteImport.update({
-  id: '/precos',
-  path: '/precos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWorkspaceRoute = ApiWorkspaceRouteImport.update({
@@ -119,7 +113,6 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
   '/como-funciona': typeof ComoFuncionaRoute
   '/modelos': typeof ModelosRoute
-  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/image': typeof ApiAiImageRoute
@@ -138,7 +131,6 @@ export interface FileRoutesByTo {
   '/app': typeof AppRoute
   '/como-funciona': typeof ComoFuncionaRoute
   '/modelos': typeof ModelosRoute
-  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/image': typeof ApiAiImageRoute
@@ -158,7 +150,6 @@ export interface FileRoutesById {
   '/app': typeof AppRoute
   '/como-funciona': typeof ComoFuncionaRoute
   '/modelos': typeof ModelosRoute
-  '/precos': typeof PrecosRoute
   '/api/workspace': typeof ApiWorkspaceRoute
   '/site/$slug': typeof SiteSlugRoute
   '/api/ai/image': typeof ApiAiImageRoute
@@ -179,7 +170,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/como-funciona'
     | '/modelos'
-    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/image'
@@ -198,7 +188,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/como-funciona'
     | '/modelos'
-    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/image'
@@ -217,7 +206,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/como-funciona'
     | '/modelos'
-    | '/precos'
     | '/api/workspace'
     | '/site/$slug'
     | '/api/ai/image'
@@ -237,7 +225,6 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   ComoFuncionaRoute: typeof ComoFuncionaRoute
   ModelosRoute: typeof ModelosRoute
-  PrecosRoute: typeof PrecosRoute
   ApiWorkspaceRoute: typeof ApiWorkspaceRoute
   SiteSlugRoute: typeof SiteSlugRoute
   ApiAiImageRoute: typeof ApiAiImageRoute
@@ -286,13 +273,6 @@ declare module '@tanstack/react-router' {
       path: '/modelos'
       fullPath: '/modelos'
       preLoaderRoute: typeof ModelosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/precos': {
-      id: '/precos'
-      path: '/precos'
-      fullPath: '/precos'
-      preLoaderRoute: typeof PrecosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/workspace': {
@@ -381,7 +361,6 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   ComoFuncionaRoute: ComoFuncionaRoute,
   ModelosRoute: ModelosRoute,
-  PrecosRoute: PrecosRoute,
   ApiWorkspaceRoute: ApiWorkspaceRoute,
   SiteSlugRoute: SiteSlugRoute,
   ApiAiImageRoute: ApiAiImageRoute,

@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Freelancers, designers and agencies create sites for local businesses. The platform owner manages access and plans. Visitors to a business site can contact that business; they do not edit its site.
+The project owner creates sites for local businesses directly in the browser. Visitors to a business site can contact that business; they do not edit its site. Accounts, access control, administration and pricing are paused for this phase.
 
 ## Product Purpose
 
@@ -16,12 +16,13 @@ Help a creator find or register a business, produce a polished site, edit it vis
 
 ## Operating Context
 
-The creator may import verified business information through Google Places or enter it manually. They need to preview desktop and mobile layouts, edit copy and imagery, export a portable site, and track clients and contracts. The owner also needs operational visibility. This repository is connected to Lovable through GitHub; development and testing here must not use Lovable AI or credits.
+The creator may import verified business information through Google Places or enter it manually. They need to preview desktop and mobile layouts, edit copy and imagery, and export a portable site. Current projects are saved in the same browser. This repository is connected to Lovable through GitHub; development and testing here must not use Lovable AI or credits.
 
 ## Capabilities and Constraints
 
 - The three supplied archetypes cover gastronomy, services and products. Their client sites retain each client's own identity.
-- External data, AI assistance, signature delivery and automatic publication are optional integrations that require real credentials and verified behavior. Manual site creation must work without them.
+- Google business search and photos require a server-side key plus explicit public-search flags. External data, AI assistance, signature delivery and automatic publication require real credentials and verified behavior. Manual site creation must work without them.
+- The current creator has no login or administrative UI. The former account APIs remain dormant for possible future use; the creator must not depend on D1.
 - Exporting files and publishing a live site are separate actions.
 - Contract text remains an editable draft until the owner supplies approved legal templates. Prices, reviews, testimonials and performance claims require confirmed sources.
 - Existing repository history, unrelated local changes and the attached source packages must be preserved. Do not copy credentials, caches or internal Git metadata from those packages into the app.

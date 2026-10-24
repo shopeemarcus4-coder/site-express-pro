@@ -52,6 +52,20 @@ class FakeD1 implements D1Database {
 }
 
 describe("Cloudflare D1 store", () => {
+  it("caps guest image requests per client and globally without creating accounts", async () => {
+    const db = new FakeD1();
+    const store = new D1SiteExpressStore(db);
+    try {
+      expect(await store.consumeGuestImageQuota("client-a", "2026-10-24", 2, 3)).toBe(true);
+      expect(await store.consumeGuestImageQuota("client-a", "2026-10-24", 2, 3)).toBe(true);
+      expect(await store.consumeGuestImageQuota("client-a", "2026-10-24", 2, 3)).toBe(false);
+      expect(await store.consumeGuestImageQuota("client-b", "2026-10-24", 2, 3)).toBe(true);
+      expect(await store.consumeGuestImageQuota("client-c", "2026-10-24", 2, 3)).toBe(false);
+      expect(await store.consumeGuestImageQuota("client-c", "2026-10-25", 2, 3)).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
   it("limits image API calls in D1 independently for each day", async () => {
     const db = new FakeD1();
     const store = new D1SiteExpressStore(db);

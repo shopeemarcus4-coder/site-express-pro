@@ -12,6 +12,8 @@ import {
   Monitor,
   Palette,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Redo2,
   SearchCheck,
@@ -29,6 +31,7 @@ import { PALETTES, SECTION_LABELS } from "./presets";
 import { SitePreview, type EditableField } from "./SitePreview";
 import { buildStandaloneHtml } from "./exportHtml";
 import { safeImageSrc } from "./media";
+import { optimizeImage } from "./optimizeImage";
 import { imageSlots, type ImageSlot } from "../../lib/integrations/image-prompt";
 import { createZip } from "./zip";
 import { imageAssets, imageChecklist } from "./imageAssets";
@@ -56,6 +59,7 @@ interface StudioPageProps {
   publicSiteHref?: string | undefined;
   photoReference?: string | undefined;
   enableAiTools?: boolean;
+  enableImageTools?: boolean;
 }
 
 type Tab = "sections" | "items" | "brand" | "marketing";
@@ -73,32 +77,6 @@ function downloadBlob(blob: Blob, name: string) {
   link.download = name;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 30000);
-}
-
-async function optimizeImage(file: File, maxWidth: number): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Não foi possível preparar a imagem neste navegador.");
-    let scale = Math.min(1, maxWidth / Math.max(bitmap.width, bitmap.height));
-    for (let attempt = 0; attempt < 9; attempt++) {
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const encoded = canvas.toDataURL("image/webp", Math.max(0.48, 0.84 - attempt * 0.05));
-      if (!encoded.startsWith("data:image/webp")) {
-        throw new Error("Este navegador não consegue otimizar imagens em WebP.");
-      }
-      // Ten inline images remain comfortably below the workspace API's 3 MB JSON limit.
-      if (encoded.length <= 180_000) return encoded;
-      scale *= 0.82;
-    }
-    throw new Error("A imagem é complexa demais para caber no projeto. Escolha outra foto.");
-  } finally {
-    bitmap.close();
-  }
 }
 
 function Field({
@@ -230,9 +208,11 @@ export function StudioPage({
   publicSiteHref,
   photoReference,
   enableAiTools = false,
+  enableImageTools = false,
 }: StudioPageProps) {
   const [tab, setTab] = useState<Tab>("sections");
   const [viewport, setViewport] = useState<Viewport>("desktop");
+  const [panelOpen, setPanelOpen] = useState(true);
   const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [toast, setToast] = useState("");
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -258,9 +238,14 @@ export function StudioPage({
   const past = useRef<SiteProject[]>([]);
   const future = useRef<SiteProject[]>([]);
   const toastTimer = useRef<number | null>(null);
+  const exportMenuRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
-    if (!enableAiTools) return;
+    if (window.matchMedia?.("(max-width: 690px)").matches) setPanelOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!enableImageTools) return;
     const controller = new AbortController();
     fetch("/api/ai/image", { credentials: "same-origin", signal: controller.signal })
       .then(async (response) => (response.ok ? ((await response.json()) as unknown) : null))
@@ -276,7 +261,7 @@ export function StudioPage({
         if (!controller.signal.aborted) setImageIntegration({ configured: false, dailyLimit: 4 });
       });
     return () => controller.abort();
-  }, [enableAiTools]);
+  }, [enableImageTools]);
 
   const announce = (message: string) => {
     setToast(message);
@@ -633,7 +618,7 @@ export function StudioPage({
   void historyVersion;
 
   return (
-    <div className="sx-studio">
+    <div className="sx-studio" data-panel-open={panelOpen}>
       <header className="sx-studio-toolbar">
         <div className="sx-studio-toolbar-start">
           <button
@@ -658,63 +643,17 @@ export function StudioPage({
           </span>
         </div>
         <div className="sx-studio-toolbar-actions">
-          <div className="sx-studio-segment" aria-label="Largura da prévia">
-            {(
-              [
-                ["desktop", Monitor, "Computador"],
-                ["tablet", Tablet, "Tablet"],
-                ["mobile", Smartphone, "Celular"],
-              ] as const
-            ).map(([id, Icon, label]) => (
-              <button
-                type="button"
-                key={id}
-                title={label}
-                aria-label={label}
-                aria-pressed={viewport === id}
-                data-active={viewport === id}
-                onClick={() => setViewport(id)}
-              >
-                <Icon size={15} />
-              </button>
-            ))}
-          </div>
-          <label className="sx-studio-toolbar-select">
-            <span className="sr-only">Paleta de cores</span>
-            <select
-              aria-label="Paleta de cores"
-              value={project.appearance.paletteId}
-              onChange={(event) => {
-                const palette = PALETTES[project.archetype].find(
-                  (item) => item.id === event.currentTarget.value,
-                );
-                if (palette) editAppearance({ paletteId: palette.id, palette: palette.value });
-              }}
-            >
-              {PALETTES[project.archetype].map((palette) => (
-                <option key={palette.id} value={palette.id}>
-                  {palette.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="sx-studio-toolbar-select">
-            <span className="sr-only">Tipografia</span>
-            <select
-              aria-label="Tipografia"
-              value={project.appearance.headingFont}
-              onChange={(event) =>
-                editAppearance({
-                  headingFont: event.currentTarget
-                    .value as SiteProject["appearance"]["headingFont"],
-                })
-              }
-            >
-              <option value="editorial">Editorial</option>
-              <option value="classic">Clássica</option>
-              <option value="modern">Moderna</option>
-            </select>
-          </label>
+          <button
+            type="button"
+            className="sx-studio-icon sx-studio-panel-toggle"
+            aria-label={panelOpen ? "Recolher ferramentas" : "Mostrar ferramentas"}
+            aria-expanded={panelOpen}
+            aria-controls="sx-studio-tools"
+            title={panelOpen ? "Recolher ferramentas" : "Mostrar ferramentas"}
+            onClick={() => setPanelOpen((open) => !open)}
+          >
+            {panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+          </button>
           <button
             type="button"
             className="sx-studio-icon"
@@ -736,20 +675,26 @@ export function StudioPage({
             <Redo2 size={17} />
           </button>
           <div className="sx-studio-divider" />
-          <button
-            type="button"
-            className="sx-studio-button sx-studio-button--light"
-            onClick={onSave}
-            disabled={!onSave || saveStatus === "saving"}
-          >
-            {saveStatus === "error"
-              ? "Tentar salvar"
-              : saveStatus === "saved"
-                ? "Salvo"
-                : saveStatus === "saving"
-                  ? "Salvando…"
-                  : "Salvar"}
-          </button>
+          {onSave ? (
+            <button
+              type="button"
+              className="sx-studio-button sx-studio-button--light"
+              onClick={onSave}
+              disabled={saveStatus === "saving"}
+            >
+              {saveStatus === "error"
+                ? "Tentar salvar"
+                : saveStatus === "saved"
+                  ? "Salvo"
+                  : saveStatus === "saving"
+                    ? "Salvando…"
+                    : "Salvar"}
+            </button>
+          ) : (
+            <span className="sx-studio-save-status" role="status">
+              {saveStatus === "error" ? "Falha ao salvar" : "Salvo neste navegador"}
+            </span>
+          )}
           <button
             type="button"
             className="sx-studio-button sx-studio-button--light"
@@ -777,26 +722,44 @@ export function StudioPage({
               {publicationStatus === "published" ? "Suspender" : "Publicar"}
             </button>
           )}
-          <button
-            type="button"
-            className="sx-studio-icon"
-            title="Baixar apenas o HTML"
-            aria-label="Baixar apenas o HTML"
-            onClick={saveHtml}
-          >
-            <FileCode2 size={17} />
-          </button>
-          <button
-            type="button"
-            className="sx-studio-button sx-studio-button--dark"
-            onClick={saveZip}
-          >
-            <Package size={15} /> Baixar ZIP
-          </button>
+          <details className="sx-studio-export" ref={exportMenuRef}>
+            <summary className="sx-studio-button sx-studio-button--dark">
+              <Package size={15} /> Exportar
+            </summary>
+            <div
+              className="sx-studio-export__options"
+              role="group"
+              aria-label="Formatos de exportação"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  saveZip();
+                  exportMenuRef.current?.removeAttribute("open");
+                }}
+              >
+                <Package size={16} /> Site completo (ZIP)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  saveHtml();
+                  exportMenuRef.current?.removeAttribute("open");
+                }}
+              >
+                <FileCode2 size={16} /> Apenas HTML
+              </button>
+            </div>
+          </details>
         </div>
       </header>
       <div className="sx-studio-body">
-        <aside className="sx-studio-panel" aria-label="Ferramentas do editor">
+        <aside
+          id="sx-studio-tools"
+          className="sx-studio-panel"
+          aria-label="Ferramentas do editor"
+          hidden={!panelOpen}
+        >
           <div className="sx-studio-tabs" role="tablist" aria-label="Ferramentas">
             {(
               [
@@ -1480,7 +1443,7 @@ export function StudioPage({
                     ))}
                   </div>
                 </Group>
-                {enableAiTools && (
+                {enableImageTools && (
                   <Group title="Imagens com Gemini">
                     <p className="sx-studio-hint">
                       Crie uma foto nova ou melhore uma foto enviada por você. Cada pedido pode
@@ -1655,19 +1618,46 @@ export function StudioPage({
           <div className="sx-studio-canvas-top">
             <div>
               <strong>Prévia ao vivo</strong>
-              <small>Clique no texto para editar diretamente</small>
+              <small>Edite textos na página. Abra as ferramentas para imagens e estilo.</small>
+            </div>
+            <div className="sx-studio-segment" aria-label="Largura da prévia">
+              {(
+                [
+                  ["desktop", Monitor, "Computador"],
+                  ["tablet", Tablet, "Tablet"],
+                  ["mobile", Smartphone, "Celular"],
+                ] as const
+              ).map(([id, Icon, label]) => (
+                <button
+                  type="button"
+                  key={id}
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={viewport === id}
+                  data-active={viewport === id}
+                  onClick={() => setViewport(id)}
+                >
+                  <Icon size={15} />
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
           </div>
           <div className="sx-canvas-viewport" data-viewport={viewport}>
-            <SitePreview
-              project={project}
-              editable
-              previewViewport={viewport}
-              selectedField={selectedField}
-              onSelectField={setSelectedField}
-              onEditField={editField}
-              onSelectImage={() => setTab("brand")}
-            />
+            <div className="sx-canvas-screen">
+              <SitePreview
+                project={project}
+                editable
+                previewViewport={viewport}
+                selectedField={selectedField}
+                onSelectField={setSelectedField}
+                onEditField={editField}
+                onSelectImage={() => {
+                  setTab("brand");
+                  setPanelOpen(true);
+                }}
+              />
+            </div>
           </div>
           <div className="sx-studio-canvas-bottom">
             <span>
