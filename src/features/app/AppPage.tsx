@@ -853,6 +853,7 @@ export function AppPage() {
             project={activeSite.publicData}
             onChange={editProject}
             onBack={() => setView("dashboard")}
+            enableAiTools={mode === "account"}
             photoReference={
               photoReference?.siteId === activeSite.id
                 ? placePhotoUrl(photoReference.photo.name)

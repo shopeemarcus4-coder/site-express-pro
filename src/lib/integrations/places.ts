@@ -50,15 +50,23 @@ export class PlacesError extends Error {
   }
 }
 
-export function placesEnabled(): boolean {
-  return (
-    process.env["SITE_EXPRESS_ENABLE_PLACES"] === "1" &&
-    Boolean(process.env["GOOGLE_PLACES_API_KEY"]?.trim())
-  );
+export function placesEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_PLACES?: string | undefined;
+    GOOGLE_PLACES_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return env.SITE_EXPRESS_ENABLE_PLACES === "1" && Boolean(env.GOOGLE_PLACES_API_KEY?.trim());
 }
 
-export function placePhotosEnabled(): boolean {
-  return placesEnabled() && process.env["SITE_EXPRESS_ENABLE_PLACES_PHOTOS"] === "1";
+export function placePhotosEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_PLACES?: string | undefined;
+    SITE_EXPRESS_ENABLE_PLACES_PHOTOS?: string | undefined;
+    GOOGLE_PLACES_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return placesEnabled(env) && env.SITE_EXPRESS_ENABLE_PLACES_PHOTOS === "1";
 }
 
 export const placePhotoName = z
@@ -154,10 +162,13 @@ export async function getPlaceDetails(
   placeId: string,
   key = placesEnabled() ? process.env["GOOGLE_PLACES_API_KEY"] : undefined,
   fetcher: Fetcher = fetch,
+  options: { contactFieldsEnabled?: boolean; photoFieldsEnabled?: boolean } = {},
 ): Promise<PlaceBusiness> {
   const validId = placesDetailsInput.parse({ placeId }).placeId;
-  const contactFieldsEnabled = process.env["SITE_EXPRESS_ENABLE_PLACES_CONTACT_FIELDS"] === "1";
-  const photoFieldsEnabled = placePhotosEnabled();
+  const contactFieldsEnabled =
+    options.contactFieldsEnabled ??
+    process.env["SITE_EXPRESS_ENABLE_PLACES_CONTACT_FIELDS"] === "1";
+  const photoFieldsEnabled = options.photoFieldsEnabled ?? placePhotosEnabled();
   const fieldMask =
     DETAILS_FIELDS +
     (contactFieldsEnabled ? DETAILS_CONTACT_FIELDS : "") +

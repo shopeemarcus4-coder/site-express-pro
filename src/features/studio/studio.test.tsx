@@ -39,6 +39,33 @@ describe("studio site generation", () => {
     expect(published.marketing).toEqual(project.marketing);
   });
 
+  it("uses a confirmed address for a map and truthful export metadata", () => {
+    const project = createSiteProject({
+      name: "Clínica Exemplo",
+      archetype: "servicos",
+      address: "Rua Um, 10",
+      city: "Londrina",
+    });
+    const html = buildStandaloneHtml(project);
+    const dom = new JSDOM(html);
+    const document = dom.window.document;
+    expect(document.querySelector("iframe")?.getAttribute("src")).toContain(
+      "Rua%20Um%2C%2010%2C%20Londrina",
+    );
+    expect(document.querySelector('meta[property="og:title"]')?.getAttribute("content")).toContain(
+      "Clínica Exemplo",
+    );
+    const schema = JSON.parse(
+      document.querySelector('script[type="application/ld+json"]')!.textContent!,
+    ) as Record<string, unknown>;
+    expect(schema).toMatchObject({
+      name: "Clínica Exemplo",
+      address: { streetAddress: "Rua Um, 10", addressLocality: "Londrina" },
+    });
+    expect(schema).not.toHaveProperty("aggregateRating");
+    dom.window.close();
+  });
+
   it("exports working category filters in standalone HTML", () => {
     const project = createSiteProject({ name: "Ateliê", archetype: "gastronomia" });
     project.items = [

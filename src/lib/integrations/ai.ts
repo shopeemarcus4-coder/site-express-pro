@@ -25,10 +25,13 @@ export class AiError extends Error {
   }
 }
 
-export function aiEnabled(): boolean {
-  return (
-    process.env["SITE_EXPRESS_ENABLE_AI"] === "1" && Boolean(process.env["GEMINI_API_KEY"]?.trim())
-  );
+export function aiEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_AI?: string | undefined;
+    GEMINI_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return env.SITE_EXPRESS_ENABLE_AI === "1" && Boolean(env.GEMINI_API_KEY?.trim());
 }
 
 function configuredKey(key: string | undefined): string {
@@ -36,8 +39,8 @@ function configuredKey(key: string | undefined): string {
   return key.trim();
 }
 
-function configuredModel(): string {
-  const model = process.env["SITE_EXPRESS_GEMINI_MODEL"]?.trim() || DEFAULT_MODEL;
+function configuredModel(modelName = process.env["SITE_EXPRESS_GEMINI_MODEL"]): string {
+  const model = modelName?.trim() || DEFAULT_MODEL;
   if (!/^[A-Za-z0-9_.-]{1,100}$/.test(model)) throw new AiError("not_configured", 503);
   return model;
 }
@@ -72,6 +75,7 @@ export async function rewriteCopy(
   input: z.input<typeof rewriteInput>,
   key = aiEnabled() ? process.env["GEMINI_API_KEY"] : undefined,
   fetcher: Fetcher = fetch,
+  modelName = process.env["SITE_EXPRESS_GEMINI_MODEL"],
 ): Promise<string> {
   const { text, tone } = rewriteInput.parse(input);
   const apiKey = configuredKey(key);
@@ -92,7 +96,7 @@ export async function rewriteCopy(
   let response: Response;
   try {
     response = await fetcher(
-      `${GEMINI_BASE}/${encodeURIComponent(configuredModel())}:generateContent`,
+      `${GEMINI_BASE}/${encodeURIComponent(configuredModel(modelName))}:generateContent`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },

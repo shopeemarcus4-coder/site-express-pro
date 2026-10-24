@@ -15,6 +15,7 @@ import {
   Plus,
   Redo2,
   SearchCheck,
+  Sparkles,
   Smartphone,
   Tablet,
   Trash2,
@@ -52,6 +53,7 @@ interface StudioPageProps {
   publishDisabled?: boolean;
   publicSiteHref?: string | undefined;
   photoReference?: string | undefined;
+  enableAiTools?: boolean;
 }
 
 type Tab = "sections" | "items" | "brand" | "marketing";
@@ -172,12 +174,16 @@ export function StudioPage({
   publishDisabled = false,
   publicSiteHref,
   photoReference,
+  enableAiTools = false,
 }: StudioPageProps) {
   const [tab, setTab] = useState<Tab>("sections");
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [selectedField, setSelectedField] = useState<EditableField | null>(null);
   const [toast, setToast] = useState("");
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [rewritingField, setRewritingField] = useState<"heroSubtitle" | "aboutBody" | null>(null);
+  const projectRef = useRef(project);
+  projectRef.current = project;
   const past = useRef<SiteProject[]>([]);
   const future = useRef<SiteProject[]>([]);
   const toastTimer = useRef<number | null>(null);
@@ -195,6 +201,38 @@ export function StudioPage({
   };
   const editContent = (field: keyof SiteProject["content"], value: string) =>
     commit({ ...project, content: { ...project.content, [field]: value } });
+  const rewriteContent = async (field: "heroSubtitle" | "aboutBody") => {
+    const sourceProject = projectRef.current;
+    const sourceText = sourceProject.content[field].trim();
+    if (sourceText.length < 10) {
+      announce("Escreva pelo menos dez caracteres antes de pedir uma reescrita.");
+      return;
+    }
+    setRewritingField(field);
+    try {
+      const response = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sourceText, tone: "profissional" }),
+      });
+      const body = (await response.json()) as { text?: unknown; error?: unknown };
+      if (!response.ok || typeof body.text !== "string")
+        throw new Error(
+          typeof body.error === "string" ? body.error : "A reescrita não ficou disponível agora.",
+        );
+      if (projectRef.current !== sourceProject) {
+        announce("O projeto mudou durante a reescrita. Tente novamente com o texto atual.");
+        return;
+      }
+      editContent(field, body.text);
+      announce("Texto reescrito. Confira os fatos antes de publicar.");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "Não foi possível reescrever o texto.");
+    } finally {
+      setRewritingField(null);
+    }
+  };
   const editBusiness = (field: keyof SiteProject["business"], value: string) =>
     commit({
       ...project,
@@ -590,6 +628,21 @@ export function StudioPage({
                     onCommit={(value) => editContent("heroSubtitle", value)}
                     multiline
                   />
+                  {enableAiTools && (
+                    <button
+                      type="button"
+                      className="sx-studio-button sx-studio-button--outline sx-studio-ai-action"
+                      disabled={
+                        rewritingField !== null || project.content.heroSubtitle.trim().length < 10
+                      }
+                      onClick={() => void rewriteContent("heroSubtitle")}
+                    >
+                      <Sparkles size={15} aria-hidden="true" />
+                      {rewritingField === "heroSubtitle"
+                        ? "Reescrevendo…"
+                        : "Melhorar descrição com IA"}
+                    </button>
+                  )}
                   <Field
                     label="Texto do botão"
                     value={project.content.ctaLabel}
@@ -610,6 +663,21 @@ export function StudioPage({
                     placeholder="Escreva informações reais sobre o negócio"
                     hint="Se ficar vazio, a seção não entra no arquivo final."
                   />
+                  {enableAiTools && (
+                    <button
+                      type="button"
+                      className="sx-studio-button sx-studio-button--outline sx-studio-ai-action"
+                      disabled={
+                        rewritingField !== null || project.content.aboutBody.trim().length < 10
+                      }
+                      onClick={() => void rewriteContent("aboutBody")}
+                    >
+                      <Sparkles size={15} aria-hidden="true" />
+                      {rewritingField === "aboutBody"
+                        ? "Reescrevendo…"
+                        : "Melhorar história com IA"}
+                    </button>
+                  )}
                 </Group>
                 <Group title="Serviços e produtos">
                   <Field

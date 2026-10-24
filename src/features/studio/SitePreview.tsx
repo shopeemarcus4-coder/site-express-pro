@@ -187,6 +187,10 @@ export function SitePreview({
     />
   );
   const location = [business.city, business.state].filter(Boolean).join(" · ");
+  const mapAddress = [business.address, business.city, business.state].filter(Boolean).join(", ");
+  const mapEmbedUrl = mapAddress
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`
+    : null;
   const hasContact = business.whatsapp.replace(/\D/g, "").length >= 10;
   const navItems = [
     active("services") && project.items.length > 0
@@ -532,6 +536,16 @@ export function SitePreview({
                   >
                     Como chegar <ExternalLink size={15} aria-hidden="true" />
                   </a>
+                )}
+                {mapEmbedUrl && (
+                  <iframe
+                    className="sx-site-map-frame"
+                    src={mapEmbedUrl}
+                    title={`Mapa de ${business.name}`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
                 )}
               </section>
             );

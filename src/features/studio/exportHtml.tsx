@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { SitePreview } from "./SitePreview";
+import { safeImageSrc } from "./media";
 import type { SiteProject } from "./types";
 import studioCss from "../../styles/studio.css?raw";
 
@@ -29,7 +30,28 @@ export function buildStandaloneHtml(project: SiteProject) {
       `${project.business.name} — ${project.business.category || "Site oficial"}`,
   );
   const safeDescription = escapeHtml(description);
+  const externalHero = safeImageSrc(project.appearance.heroImage);
+  const socialImage = externalHero && /^https?:\/\//i.test(externalHero) ? externalHero : null;
+  const address = project.business.address.trim();
+  const structuredData = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: project.business.name,
+    description,
+    ...(socialImage ? { image: socialImage } : {}),
+    ...(address
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: address,
+            ...(project.business.city ? { addressLocality: project.business.city } : {}),
+            ...(project.business.state ? { addressRegion: project.business.state } : {}),
+            addressCountry: "BR",
+          },
+        }
+      : {}),
+  }).replace(/</g, "\\u003c");
   const css = studioCss.replace(/<\/style/gi, "<\\/style");
   const filters = `<script>(function(){document.querySelectorAll('[data-sx-filter]').forEach(function(button){button.addEventListener('click',function(){var section=button.closest('.sx-site-services');if(!section)return;var selected=button.getAttribute('data-sx-filter');section.querySelectorAll('[data-sx-filter]').forEach(function(other){other.setAttribute('aria-pressed',String(other===button))});section.querySelectorAll('[data-sx-category]').forEach(function(card){card.hidden=selected!=='all'&&card.getAttribute('data-sx-category')!==selected})})})})();</script>`;
-  return `<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${safeDescription}"><title>${safeTitle}</title><style>html{scroll-behavior:smooth}body{margin:0}${css}</style></head><body>${holder.innerHTML}${filters}</body></html>`;
+  return `<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${safeDescription}"><meta property="og:type" content="website"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">${socialImage ? `<meta property="og:image" content="${escapeHtml(socialImage)}">` : ""}<meta name="theme-color" content="${escapeHtml(project.appearance.palette.primary)}"><title>${safeTitle}</title><script type="application/ld+json">${structuredData}</script><style>html{scroll-behavior:smooth}body{margin:0}${css}</style></head><body>${holder.innerHTML}${filters}</body></html>`;
 }

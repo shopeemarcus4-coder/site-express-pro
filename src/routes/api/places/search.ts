@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAuthenticatedUser, isSameOrigin, jsonError, readJson } from "../../../lib/server/auth";
 import {
+  PlacesError,
   placesEnabled,
   placesMessage,
   placesSearchInput,
   searchPlaces,
 } from "../../../lib/integrations/places";
+import { integrationEnv } from "../../../lib/server/runtime-env";
 
 export const Route = createFileRoute("/api/places/search")({
   server: {
@@ -14,7 +16,7 @@ export const Route = createFileRoute("/api/places/search")({
         if (!(await getAuthenticatedUser(request)))
           return jsonError("Entre na sua conta para consultar integrações.", 401);
         return Response.json(
-          { configured: placesEnabled() },
+          { configured: placesEnabled(integrationEnv(request)) },
           {
             headers: { "Cache-Control": "no-store" },
           },
@@ -25,8 +27,10 @@ export const Route = createFileRoute("/api/places/search")({
         if (!(await getAuthenticatedUser(request)))
           return jsonError("Entre na sua conta para buscar empresas.", 401);
         try {
+          const env = integrationEnv(request);
+          if (!placesEnabled(env)) throw new PlacesError("not_configured", 503);
           const input = placesSearchInput.parse(await readJson(request, 1_024));
-          const results = await searchPlaces(input.query);
+          const results = await searchPlaces(input.query, env.GOOGLE_PLACES_API_KEY);
           return Response.json(
             { results, source: "google_places" },
             {
