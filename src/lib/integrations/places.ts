@@ -69,6 +69,16 @@ export function placePhotosEnabled(
   return placesEnabled(env) && env.SITE_EXPRESS_ENABLE_PLACES_PHOTOS === "1";
 }
 
+export function publicPlacesEnabled(
+  env: {
+    SITE_EXPRESS_ENABLE_PLACES?: string | undefined;
+    SITE_EXPRESS_ENABLE_PUBLIC_PLACES?: string | undefined;
+    GOOGLE_PLACES_API_KEY?: string | undefined;
+  } = process.env,
+): boolean {
+  return placesEnabled(env) && env.SITE_EXPRESS_ENABLE_PUBLIC_PLACES === "1";
+}
+
 export const placePhotoName = z
   .string()
   .max(512)

@@ -3,6 +3,7 @@ import { getAuthenticatedUser, isSameOrigin, jsonError, readJson } from "../../.
 import {
   PlacesError,
   placesEnabled,
+  publicPlacesEnabled,
   placesMessage,
   placesSearchInput,
   searchPlaces,
@@ -13,10 +14,11 @@ export const Route = createFileRoute("/api/places/search")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (!(await getAuthenticatedUser(request)))
+        const env = integrationEnv(request);
+        if (!(await getAuthenticatedUser(request)) && !publicPlacesEnabled(env))
           return jsonError("Entre na sua conta para consultar integrações.", 401);
         return Response.json(
-          { configured: placesEnabled(integrationEnv(request)) },
+          { configured: placesEnabled(env) },
           {
             headers: { "Cache-Control": "no-store" },
           },
@@ -24,10 +26,10 @@ export const Route = createFileRoute("/api/places/search")({
       },
       POST: async ({ request }) => {
         if (!isSameOrigin(request)) return jsonError("Origem da solicitação não autorizada.", 403);
-        if (!(await getAuthenticatedUser(request)))
+        const env = integrationEnv(request);
+        if (!(await getAuthenticatedUser(request)) && !publicPlacesEnabled(env))
           return jsonError("Entre na sua conta para buscar empresas.", 401);
         try {
-          const env = integrationEnv(request);
           if (!placesEnabled(env)) throw new PlacesError("not_configured", 503);
           const input = placesSearchInput.parse(await readJson(request, 1_024));
           const results = await searchPlaces(input.query, env.GOOGLE_PLACES_API_KEY);

@@ -627,6 +627,29 @@ export function AppPage() {
               Escolha um modelo, ajuste os detalhes e exporte seu site. Você pode começar agora
               mesmo neste navegador.
             </p>
+            <form
+              className="sx-app-search-home__form"
+              onSubmit={(event) => {
+                enterLocal();
+                void searchPlaces(event);
+              }}
+            >
+              <Search size={20} aria-hidden="true" />
+              <input
+                aria-label="Buscar empresa no Google"
+                value={placeQuery}
+                onChange={(event) => setPlaceQuery(event.target.value)}
+                placeholder="Nome da empresa e cidade"
+                minLength={2}
+                required
+              />
+              <button type="submit" disabled={placesBusy}>
+                Buscar empresa <ArrowRight size={16} />
+              </button>
+            </form>
+            <small>
+              Se a busca externa ainda não estiver ativa, você poderá criar o site manualmente.
+            </small>
             <div className="sx-app-auth__highlights">
               <span>
                 <Check size={17} /> Editor visual
@@ -893,40 +916,31 @@ export function AppPage() {
                 Encontre os dados do negócio, confira as informações e crie uma página pronta para
                 personalizar, publicar ou exportar.
               </p>
-              {mode === "account" ? (
-                <>
-                  <form
-                    className="sx-app-search-home__form"
-                    onSubmit={(event) => void searchPlaces(event)}
-                  >
-                    <Search size={22} aria-hidden="true" />
-                    <input
-                      aria-label="Nome da empresa e cidade"
-                      value={placeQuery}
-                      onChange={(event) => setPlaceQuery(event.target.value)}
-                      placeholder="Nome da empresa e cidade"
-                    />
-                    <button type="submit" disabled={placesBusy}>
-                      {placesBusy ? "Buscando…" : "Buscar empresa"} <ArrowRight size={17} />
-                    </button>
-                  </form>
-                  <button
-                    type="button"
-                    className="sx-app-search-home__manual"
-                    onClick={() => setShowCreate(true)}
-                  >
-                    Criar com dados manuais <ArrowRight size={14} />
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="sx-app-primary"
-                  onClick={() => setShowCreate(true)}
-                >
-                  <Plus size={18} /> Criar site agora
+              <form
+                className="sx-app-search-home__form"
+                onSubmit={(event) => void searchPlaces(event)}
+              >
+                <Search size={22} aria-hidden="true" />
+                <input
+                  aria-label="Nome da empresa e cidade"
+                  value={placeQuery}
+                  onChange={(event) => setPlaceQuery(event.target.value)}
+                  placeholder="Nome da empresa e cidade"
+                  minLength={2}
+                  required
+                />
+                <button type="submit" disabled={placesBusy}>
+                  {placesBusy ? "Buscando…" : "Buscar empresa"} <ArrowRight size={17} />
                 </button>
-              )}
+              </form>
+              <button
+                type="button"
+                className="sx-app-search-home__manual"
+                onClick={() => setShowCreate(true)}
+              >
+                {mode === "local" ? "Criar site agora" : "Criar com dados manuais"}{" "}
+                <ArrowRight size={14} />
+              </button>
               {placesMessage && (
                 <p className="sx-app-search-home__message" role="status">
                   {placesMessage}
@@ -1015,7 +1029,7 @@ export function AppPage() {
                       <h3>Fale um pouco sobre o negócio.</h3>
                       <p>Você pode completar ou mudar tudo no editor.</p>
                     </div>
-                    {mode === "account" && (
+                    {(mode === "account" || mode === "local") && (
                       <form
                         className="sx-app-place-search"
                         onSubmit={(event) => void searchPlaces(event)}

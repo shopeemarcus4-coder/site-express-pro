@@ -3,6 +3,7 @@ import {
   getPlaceDetails,
   getPlacePhoto,
   placesEnabled,
+  publicPlacesEnabled,
   placesMessage,
   searchPlaces,
 } from "./places";
@@ -19,6 +20,22 @@ describe("Google Places integration", () => {
       searchPlaces("cafés em São Paulo", undefined, fetcher as unknown as typeof fetch),
     ).rejects.toMatchObject({ code: "not_configured", status: 503 });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("requires a separate switch before exposing paid search to guests", () => {
+    expect(
+      publicPlacesEnabled({
+        SITE_EXPRESS_ENABLE_PLACES: "1",
+        GOOGLE_PLACES_API_KEY: "key",
+      }),
+    ).toBe(false);
+    expect(
+      publicPlacesEnabled({
+        SITE_EXPRESS_ENABLE_PLACES: "1",
+        SITE_EXPRESS_ENABLE_PUBLIC_PLACES: "1",
+        GOOGLE_PLACES_API_KEY: "key",
+      }),
+    ).toBe(true);
   });
 
   it("requests only search fields needed by the business picker", async () => {
