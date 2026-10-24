@@ -1,0 +1,9 @@
+{
+  "d1_databases": [
+    {
+      "binding": "SITE_EXPRESS_DB",
+      "database_name": "siteexpresspro",
+      "database_id": "50b0b92c-774f-4672-acf5-c55f8a889060"
+    }
+  ]
+}
