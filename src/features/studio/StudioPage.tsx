@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -249,11 +249,34 @@ export function StudioPage({
     projectId: string;
     original: string;
   } | null>(null);
+  const [imageIntegration, setImageIntegration] = useState<{
+    configured: boolean;
+    dailyLimit: number;
+  } | null>(null);
   const projectRef = useRef(project);
   projectRef.current = project;
   const past = useRef<SiteProject[]>([]);
   const future = useRef<SiteProject[]>([]);
   const toastTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!enableAiTools) return;
+    const controller = new AbortController();
+    fetch("/api/ai/image", { credentials: "same-origin", signal: controller.signal })
+      .then(async (response) => (response.ok ? ((await response.json()) as unknown) : null))
+      .then((value) => {
+        if (controller.signal.aborted) return;
+        const result = value as { configured?: unknown; dailyLimit?: unknown } | null;
+        setImageIntegration({
+          configured: result?.configured === true,
+          dailyLimit: typeof result?.dailyLimit === "number" ? result.dailyLimit : 4,
+        });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setImageIntegration({ configured: false, dailyLimit: 4 });
+      });
+    return () => controller.abort();
+  }, [enableAiTools]);
 
   const announce = (message: string) => {
     setToast(message);
@@ -1463,6 +1486,13 @@ export function StudioPage({
                       Crie uma foto nova ou melhore uma foto enviada por você. Cada pedido pode
                       consumir sua cota da API. Confira a prévia antes de usar no site.
                     </p>
+                    <p className="sx-studio-hint" role="status">
+                      {imageIntegration === null
+                        ? "Verificando disponibilidade do Gemini…"
+                        : imageIntegration.configured
+                          ? `Gemini disponível · até ${imageIntegration.dailyLimit} pedidos por dia neste espaço de trabalho.`
+                          : "Gemini indisponível neste ambiente. Você pode continuar enviando fotos autorizadas."}
+                    </p>
                     <div className="sx-studio-field">
                       <label>
                         Onde usar
@@ -1522,7 +1552,9 @@ export function StudioPage({
                         type="button"
                         className="sx-studio-button sx-studio-button--outline"
                         disabled={
-                          imageBusy || (imageTarget === "gallery" && project.gallery.length >= 8)
+                          !imageIntegration?.configured ||
+                          imageBusy ||
+                          (imageTarget === "gallery" && project.gallery.length >= 8)
                         }
                         onClick={() => void requestImage("generate")}
                       >
@@ -1532,7 +1564,9 @@ export function StudioPage({
                         type="button"
                         className="sx-studio-button sx-studio-button--outline"
                         disabled={
-                          imageBusy || !projectImageForSlot(project, imageTarget, imageIndex)
+                          !imageIntegration?.configured ||
+                          imageBusy ||
+                          !projectImageForSlot(project, imageTarget, imageIndex)
                         }
                         onClick={() => void requestImage("enhance")}
                       >

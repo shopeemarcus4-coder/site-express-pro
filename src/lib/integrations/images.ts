@@ -73,6 +73,7 @@ export function imageAiMessage(error: unknown): { message: string; status: numbe
   }
   if (
     error instanceof z.ZodError ||
+    error instanceof SyntaxError ||
     (error instanceof Error && ["too_large", "content_type"].includes(error.message))
   ) {
     return {
